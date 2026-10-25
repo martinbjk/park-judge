@@ -44,6 +44,9 @@ export type RunRad = {
   trick: string;
   motivering: string;
   kriterier: Kriterium[];
+  // Position på parkbilden, 0–1000 (x från vänster, y uppifrån). Saknas utan bild.
+  x?: number;
+  y?: number;
 };
 
 export type RunVersion = {

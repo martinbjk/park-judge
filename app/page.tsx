@@ -9,6 +9,7 @@ import {
   type Lage,
   type ParkBild,
 } from "@/lib/types";
+import RunKarta from "./RunKarta";
 
 const EXEMPEL: JudgeInput = {
   lage: "foresla",
@@ -110,6 +111,7 @@ export default function Page() {
   const [f, setF] = useState<JudgeInput>(TOM);
   const [res, setRes] = useState<JudgeResult | null>(null);
   const [resLage, setResLage] = useState<Lage>("foresla");
+  const [resBild, setResBild] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState(1);
@@ -168,6 +170,7 @@ export default function Page() {
       if (!r.ok) throw new Error(data.error || "Något gick fel.");
       setRes(data);
       setResLage(f.lage);
+      setResBild(f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null);
       setTab(1);
       setTimeout(() => document.getElementById("resultat")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (e) {
@@ -201,10 +204,13 @@ export default function Page() {
             {v.typ} · {v.uppskattatBetyg.toFixed(1)} / 10
           </h4>
           <p className="vdesc">{v.beskrivning}</p>
+          <RunKarta key={`${v.typ}-${resBild?.length ?? 0}`} version={v} bildSrc={resBild} />
+          <h4 className="sub-title">Detaljer per trick</h4>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
+                  <th>#</th>
                   <th>Tid</th>
                   <th>Hinder</th>
                   <th>Trick</th>
@@ -218,6 +224,7 @@ export default function Page() {
                   const namn = r.trick.replace(/\s*\((fyllnad|nytt)\)/gi, "");
                   return (
                     <tr key={j} className={fyllnad ? "fill-row" : ""}>
+                      <td className="rownr">{j + 1}</td>
                       <td className="time">{r.tid}</td>
                       <td className="sek">{r.sektion}</td>
                       <td className="trick">
@@ -507,9 +514,9 @@ export default function Page() {
             <section className="panel">
               <h3 className="panel-title">Hinder domaren hittade</h3>
               <div className="obstacles">
-                {bildSrc && (
+                {resBild && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img className="obstacles-img" src={bildSrc} alt="Parken" />
+                  <img className="obstacles-img" src={resBild} alt="Parken" />
                 )}
                 <div className="chips" style={{ marginTop: 0 }}>
                   {res.hinderIParken.map((h) => (
