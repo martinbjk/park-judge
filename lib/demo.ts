@@ -25,22 +25,31 @@ const rad = (
   motivering: string,
   kriterier: RunRad["kriterier"],
   p: { x: number; y: number }
-): RunRad => ({ tid, sektion, trick, motivering, kriterier, x: p.x, y: p.y });
+): RunRad => {
+  void p; // positionen kommer från hindrets ruta i hinderIParken
+  return { tid, sektion, trick, motivering, kriterier };
+};
+
+// Ruta runt ett hinder i Geminis format [ymin, xmin, ymax, xmax]
+const box = (namn: string, p: { x: number; y: number }, halvB: number, halvH: number) => ({
+  namn,
+  box_2d: [p.y - halvH, p.x - halvB, p.y + halvH, p.x + halvB],
+});
 
 export const DEMO_RESULT: JudgeResult = {
   hinderIParken: [
-    "Platform quarter (vänster)",
-    "Bridge",
-    "Bank",
-    "Platform quarter (höger)",
-    "Spine",
-    "Extension (höger)",
-    "Extension (vänster)",
-    "Hip",
-    "Volcano",
-    "Deep end",
-    "Gap hip",
-    "Platform deck",
+    box("Platform quarter (vänster)", P.platformQuarterV, 70, 45),
+    box("Bridge", P.bridge, 55, 45),
+    box("Bank", P.bank, 60, 45),
+    box("Platform quarter (höger)", P.platformQuarterH, 70, 45),
+    box("Spine", P.spine, 45, 70),
+    box("Extension (höger)", P.extensionH, 60, 45),
+    box("Extension (vänster)", P.extensionV, 60, 45),
+    box("Hip", P.hip, 40, 60),
+    box("Volcano", P.volcano, 70, 60),
+    box("Deep end", P.deepEnd, 80, 80),
+    box("Gap hip", P.gapHip, 50, 45),
+    box("Platform deck", P.platformDeck, 70, 40),
   ],
   analys: {
     totalTidSek: 44,

@@ -17,12 +17,14 @@ BEDÖMNINGSPRINCIP:
 - Ett trick tar normalt 2–4 sekunder inklusive inåkning och utåkning. En 45-sekundersrun rymmer normalt 10–16 tricks. Bedöm om antalet är realistiskt för parken och nivån.
 
 PARKBILD:
-- Om en bild på parken bifogas: läs av alla hinder i bilden. Använd de namn som står utskrivna i bilden om sådana finns (t.ex. "Platform quarter", "Spine", "Volcano", "Gap hip", "Deep end"). Lista dem i fältet "hinderIParken".
+- Om en bild på parken bifogas: hitta alla hinder i bilden och lista dem i "hinderIParken". Bilden kan innehålla text, marginaler eller annat runt parken. Bry dig bara om själva parken.
+- Använd de namn som står utskrivna i bilden om sådana finns (t.ex. "Platform quarter", "Spine", "Volcano", "Gap hip", "Deep end"). Finns två hinder med samma namn, skilj dem åt, t.ex. "Extension (vänster)" och "Extension (höger)".
+- Ge varje hinder en "box_2d": [ymin, xmin, ymax, xmax] normaliserad till 0–1000 i förhållande till HELA bilden. Rutan ska omsluta själva hindret (rampen, kanten, copingen), inte bara den utskrivna etiketten.
+- Utan bild: lista hindren från parkbeskrivningen utan "box_2d".
+- Använd bara hinder som finns i bilden eller i parkbeskrivningen. Hitta inte på hinder. Skriv till exempel inte "Shallow end" om parken inte har någon shallow end.
+- Fältet "sektion" i varje rad MÅSTE vara exakt samma text som "namn" på ett av hindren i "hinderIParken".
 - Bygg en logisk väg genom parken utifrån hur hindren faktiskt ligger i förhållande till varandra, så att åkaren inte behöver tappa fart eller vända i onödan.
-- Använd bara hinder som finns i bilden eller i parkbeskrivningen. Hitta inte på hinder.
-- För varje trick i varje version: ange exakt var på bilden tricket utförs med "x" och "y" på en skala 0–1000, där x=0 är bildens vänsterkant, x=1000 högerkant, y=0 överkant och y=1000 nederkant. Peka på själva platsen där tricket görs (coping, kant, hinder), inte mitt i bowlens botten. Om hindret har ett utskrivet namn i bilden, utgå från var namnet sitter och flytta punkten till hindrets kant.
-- Första raden i varje version ska vara starten (t.ex. "Roll in" eller "Drop in") från en rimlig plats i parken, med position.
-- Utan bild: utelämna "x" och "y".
+- Första raden i varje version ska vara starten (t.ex. "Roll in" eller "Drop in") från ett hinder där man rimligen startar, t.ex. ett platform deck eller en platform quarter.
 
 FYLLNADSTRICKS:
 - Mellan huvudtricken får du fylla ut med frontside- och backside-grinds (t.ex. frontside/backside 50-50, 5-0, smith, feeble, crooked, nosegrind) på coping, extensions, platforms, rails eller ledges för att hålla farten och fylla tiden.
@@ -90,8 +92,19 @@ export const RESPONSE_SCHEMA = {
   properties: {
     hinderIParken: {
       type: "ARRAY",
-      items: { type: "STRING" },
       description: "Hinder som syns i parkbilden eller nämns i beskrivningen",
+      items: {
+        type: "OBJECT",
+        properties: {
+          namn: { type: "STRING" },
+          box_2d: {
+            type: "ARRAY",
+            items: { type: "INTEGER" },
+            description: "[ymin, xmin, ymax, xmax] 0–1000 i förhållande till hela bilden",
+          },
+        },
+        required: ["namn"],
+      },
     },
     analys: {
       type: "OBJECT",
@@ -142,8 +155,6 @@ export const RESPONSE_SCHEMA = {
                 trick: { type: "STRING" },
                 motivering: { type: "STRING" },
                 kriterier: { type: "ARRAY", items: { type: "STRING", enum: [...KRITERIER] } },
-                x: { type: "NUMBER", description: "0–1000 från bildens vänsterkant" },
-                y: { type: "NUMBER", description: "0–1000 från bildens överkant" },
               },
               required: ["tid", "sektion", "trick", "motivering", "kriterier"],
             },

@@ -1,28 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { RunVersion } from "@/lib/types";
+import type { Hinder, RunVersion } from "@/lib/types";
+import { hittaHinder, mittpunkt } from "@/lib/hinder";
 
 type Punkt = { x: number; y: number };
+type Start = Punkt & { gissad: boolean };
 
 const rensaNamn = (t: string) => t.replace(/\s*\((fyllnad|nytt)\)/gi, "");
 const begr = (v: number) => Math.max(0, Math.min(1000, v));
 
-// Startposition för en markering. Tricks utan position läggs i en rad uppe till vänster.
-function startPunkt(v: RunVersion, i: number): Punkt & { gissad: boolean } {
+// Startposition för en markering:
+// 1. egen position på raden (används i demoläget)
+// 2. mitten av hindret som tricket görs på
+// 3. annars en rad uppe till vänster, att dra till rätt plats
+function startPunkt(v: RunVersion, i: number, hinder: Hinder[]): Start {
   const r = v.rader[i];
   if (typeof r.x === "number" && typeof r.y === "number") return { x: begr(r.x), y: begr(r.y), gissad: false };
+  const h = hittaHinder(hinder, r.sektion);
+  const m = h && mittpunkt(h);
+  if (m) return { x: begr(m.x), y: begr(m.y), gissad: false };
   return { x: 40 + (i % 12) * 60, y: 40 + Math.floor(i / 12) * 60, gissad: true };
 }
 
 // Sprider markeringar som hamnar ovanpå varandra (t.ex. flera tricks i deep end).
 // Avstånd räknas i skärmpixlar så att det fungerar för alla bildformat och skärmstorlekar.
-function spridPunkter(v: RunVersion, bredd: number, hojd: number, markor: number): Punkt[] {
+function spridPunkter(starter: Start[], bredd: number, hojd: number, markor: number): Punkt[] {
   const MIN = markor + 4; // pixlar mellan markeringarnas mittpunkter
   const tillPx = (p: Punkt) => ({ x: (p.x / 1000) * bredd, y: (p.y / 1000) * hojd });
   const ut: Punkt[] = [];
-  v.rader.forEach((_, i) => {
-    const s = startPunkt(v, i);
+  starter.forEach((s) => {
     let p: Punkt = { x: s.x, y: s.y };
     if (!s.gissad && bredd > 0 && hojd > 0) {
       const krockar = (k: Punkt) =>
@@ -46,7 +53,15 @@ function spridPunkter(v: RunVersion, bredd: number, hojd: number, markor: number
   return ut;
 }
 
-export default function RunKarta({ version, bildSrc }: { version: RunVersion; bildSrc: string | null }) {
+export default function RunKarta({
+  version,
+  bildSrc,
+  hinder,
+}: {
+  version: RunVersion;
+  bildSrc: string | null;
+  hinder: Hinder[];
+}) {
   const [flyttade, setFlyttade] = useState<Record<number, Punkt>>({});
   const [aktiv, setAktiv] = useState<number | null>(null);
   const [laddar, setLaddar] = useState(false);
@@ -64,19 +79,20 @@ export default function RunKarta({ version, bildSrc }: { version: RunVersion; bi
     return () => ro.disconnect();
   }, [bildSrc]);
 
+  const starter = useMemo(() => version.rader.map((_, i) => startPunkt(version, i, hinder)), [version, hinder]);
   const markorPx = yta.b > 0 && yta.b < 500 ? 24 : 30;
   const baspunkter = useMemo(
-    () => spridPunkter(version, yta.b, yta.h, markorPx),
-    [version, yta.b, yta.h, markorPx]
+    () => spridPunkter(starter, yta.b, yta.h, markorPx),
+    [starter, yta.b, yta.h, markorPx]
   );
 
   const punkt = (i: number) => flyttade[i] ?? baspunkter[i];
-  const nagonGissad = version.rader.some((_, i) => !flyttade[i] && startPunkt(version, i).gissad);
+  const nagonGissad = starter.some((s, i) => s.gissad && !flyttade[i]);
 
   function flytta(i: number, e: React.PointerEvent) {
-    const yta = ytaRef.current;
-    if (!yta) return;
-    const r = yta.getBoundingClientRect();
+    const el = ytaRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
     setFlyttade((prev) => ({
       ...prev,
       [i]: {
@@ -199,7 +215,7 @@ export default function RunKarta({ version, bildSrc }: { version: RunVersion; bi
                   type="button"
                   key={i}
                   className={`markor ${aktiv === i ? "aktiv" : ""} ${
-                    !flyttade[i] && startPunkt(version, i).gissad ? "gissad" : ""
+                    starter[i].gissad && !flyttade[i] ? "gissad" : ""
                   }`}
                   style={{ left: `${p.x / 10}%`, top: `${p.y / 10}%` }}
                   title={`${i + 1}. ${rensaNamn(r.trick)} – dra för att flytta`}
@@ -223,7 +239,7 @@ export default function RunKarta({ version, bildSrc }: { version: RunVersion; bi
           <div className="karta-verktyg no-print">
             <span>
               {nagonGissad
-                ? "Några tricks saknade position och ligger uppe till vänster. Dra dem till rätt plats."
+                ? "Några tricks kunde inte kopplas till ett hinder och ligger uppe till vänster. Dra dem till rätt plats."
                 : "Dra en siffra om den hamnat fel."}
             </span>
             <div className="park-preview-actions">

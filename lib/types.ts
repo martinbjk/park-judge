@@ -56,8 +56,12 @@ export type RunVersion = {
   rader: RunRad[];
 };
 
+// Ett hinder i parkbilden. box_2d = [ymin, xmin, ymax, xmax] på skala 0–1000 (Geminis eget format).
+export type Hinder = { namn: string; box_2d?: number[] };
+
 export type JudgeResult = {
-  hinderIParken?: string[];
+  // Äldre svar kan ha bara namn som text
+  hinderIParken?: (string | Hinder)[];
   analys: {
     totalTidSek: number;
     antalTricks: number;

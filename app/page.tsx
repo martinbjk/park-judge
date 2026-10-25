@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { normaliseraHinder } from "@/lib/hinder";
+import BeskarBild from "./BeskarBild";
 import {
   KRITERIER,
   KRITERIER_SV,
@@ -117,6 +119,7 @@ export default function Page() {
   const [tab, setTab] = useState(1);
   const [bildLaddar, setBildLaddar] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [beskar, setBeskar] = useState(false);
   const filRef = useRef<HTMLInputElement>(null);
 
   const set =
@@ -135,6 +138,7 @@ export default function Page() {
     try {
       const bild = await komprimeraBild(fil);
       setF((prev) => ({ ...prev, bild }));
+      setBeskar(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Kunde inte läsa bilden.");
     } finally {
@@ -180,6 +184,8 @@ export default function Page() {
     }
   }
 
+  const hinder = useMemo(() => normaliseraHinder(res?.hinderIParken), [res]);
+
   const ordnade = res
     ? KRITERIER.map((k) => res.kriterier.find((x) => x.namn === k)).filter(Boolean)
     : [];
@@ -204,7 +210,7 @@ export default function Page() {
             {v.typ} · {v.uppskattatBetyg.toFixed(1)} / 10
           </h4>
           <p className="vdesc">{v.beskrivning}</p>
-          <RunKarta key={`${v.typ}-${resBild?.length ?? 0}`} version={v} bildSrc={resBild} />
+          <RunKarta key={`${v.typ}-${resBild?.length ?? 0}`} version={v} bildSrc={resBild} hinder={hinder} />
           <h4 className="sub-title">Detaljer per trick</h4>
           <div className="table-scroll">
             <table>
@@ -338,13 +344,25 @@ export default function Page() {
             e.target.value = "";
           }}
         />
-        {bildSrc ? (
+        {f.bild && beskar ? (
+          <BeskarBild
+            bild={f.bild}
+            onAvbryt={() => setBeskar(false)}
+            onKlar={(ny) => {
+              setF((prev) => ({ ...prev, bild: ny }));
+              setBeskar(false);
+            }}
+          />
+        ) : bildSrc ? (
           <div className="park-preview">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={bildSrc} alt="Uppladdad bild på parken" />
             <div className="park-preview-bar">
-              <span>Bilden skickas med och domaren läser av hindren.</span>
+              <span>Syns text eller marginaler runt parken? Beskär bilden så hittar domaren rätt.</span>
               <div className="park-preview-actions">
+                <button type="button" className="btn-small gold" onClick={() => setBeskar(true)}>
+                  Beskär
+                </button>
                 <button type="button" className="btn-small" onClick={() => filRef.current?.click()}>
                   Byt bild
                 </button>
@@ -436,7 +454,7 @@ export default function Page() {
         )}
 
         <div className="actions" style={{ marginTop: 18 }}>
-          <button className="btn btn-primary" disabled={busy || bildLaddar}>
+          <button className="btn btn-primary" disabled={busy || bildLaddar || beskar}>
             {busy ? "Domarna arbetar…" : foresla ? "Föreslå en run" : "Bedöm runnen"}
           </button>
           <button
@@ -510,20 +528,47 @@ export default function Page() {
             </div>
           </section>
 
-          {res.hinderIParken && res.hinderIParken.length > 0 && (
+          {hinder.length > 0 && (
             <section className="panel">
               <h3 className="panel-title">Hinder domaren hittade</h3>
               <div className="obstacles">
                 {resBild && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="obstacles-img" src={resBild} alt="Parken" />
+                  <div className="obstacles-yta">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={resBild} alt="Parken med hindren markerade" />
+                    {hinder.map(
+                      (h, i) =>
+                        h.box_2d && (
+                          <div
+                            key={i}
+                            className="hinder-ruta"
+                            style={{
+                              top: `${h.box_2d[0] / 10}%`,
+                              left: `${h.box_2d[1] / 10}%`,
+                              height: `${(h.box_2d[2] - h.box_2d[0]) / 10}%`,
+                              width: `${(h.box_2d[3] - h.box_2d[1]) / 10}%`,
+                            }}
+                          >
+                            <span>{h.namn}</span>
+                          </div>
+                        )
+                    )}
+                  </div>
                 )}
-                <div className="chips" style={{ marginTop: 0 }}>
-                  {res.hinderIParken.map((h) => (
-                    <span className="chip obstacle" key={h}>
-                      {h}
-                    </span>
-                  ))}
+                <div>
+                  <div className="chips" style={{ marginTop: 0 }}>
+                    {hinder.map((h, i) => (
+                      <span className="chip obstacle" key={i}>
+                        {h.namn}
+                      </span>
+                    ))}
+                  </div>
+                  {resBild && (
+                    <p className="hint" style={{ marginTop: 12 }}>
+                      Rutorna visar var domaren tror att hindren ligger. Numren i runnen placeras utifrån dem.
+                      Ligger rutorna fel, prova att beskära bilden så att bara parken syns.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
