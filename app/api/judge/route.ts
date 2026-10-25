@@ -6,6 +6,25 @@ import { DEMO_RESULT } from "@/lib/demo";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const API = "https://generativelanguage.googleapis.com/v1beta";
+
+// Provas i ordning. Google byter modeller ofta, därför finns även automatisk sökning nedan.
+const KANDA_MODELLER = [
+  "gemini-flash-latest",
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-flash-lite-latest",
+  "gemini-3.5-flash-lite",
+  "gemini-2.5-flash",
+];
+
+const TILLATNA_BILDTYPER = ["image/jpeg", "image/png", "image/webp"];
+const MAX_BILD_BASE64 = 4_000_000; // cirka 3 MB bild. Vercel tar max 4,5 MB per anrop.
+
+// Kommer ihåg vilken modell som fungerade så länge funktionen är varm
+let fungerandeModell: string | undefined;
+
 // Enkel spärr per besökare. Den nollställs när servern startar om,
 // så den skyddar mot misstag och enklare missbruk, inte mot allt.
 const traffar = new Map<string, number[]>();
@@ -23,35 +42,51 @@ function forMangaForfragningar(ip: string): boolean {
   return false;
 }
 
+function fel(meddelande: string, status: number) {
+  return NextResponse.json({ error: meddelande }, { status });
+}
+
 export async function POST(req: Request) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY saknas. Lägg in den i Vercel under Settings → Environment Variables." },
-      { status: 500 }
-    );
+    return fel("GEMINI_API_KEY saknas. Lägg in den i Vercel under Settings → Environment Variables.", 500);
   }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "okänd";
   if (forMangaForfragningar(ip)) {
-    return NextResponse.json(
-      { error: "Du har nått gränsen för bedömningar den här timmen. Försök igen senare." },
-      { status: 429 }
-    );
+    return fel("Du har nått gränsen för bedömningar den här timmen. Försök igen senare.", 429);
   }
 
   let input: JudgeInput;
   try {
     input = await req.json();
   } catch {
-    return NextResponse.json({ error: "Ogiltig förfrågan." }, { status: 400 });
+    return fel("Ogiltig förfrågan. Bilden kan vara för stor, prova en mindre.", 400);
   }
 
-  if (!input.run || input.run.trim().length < 5) {
-    return NextResponse.json({ error: "Skriv in runnen du vill få bedömd." }, { status: 400 });
+  const lage = input.lage === "bedom" ? "bedom" : "foresla";
+  input.lage = lage;
+
+  if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
+    return fel("Skriv in runnen du vill få bedömd, eller välj Föreslå en run.", 400);
   }
-  if (JSON.stringify(input).length > 8000) {
-    return NextResponse.json({ error: "Texten är för lång. Korta ner beskrivningen." }, { status: 400 });
+  if (lage === "foresla" && (!input.sakraTricks || input.sakraTricks.trim().length < 3)) {
+    return fel("Skriv in vilka tricks åkaren vill göra, så kan en run föreslås.", 400);
+  }
+
+  const bild = input.bild || null;
+  if (bild) {
+    if (!TILLATNA_BILDTYPER.includes(bild.mimeType) || typeof bild.data !== "string") {
+      return fel("Bilden måste vara JPG, PNG eller WebP.", 400);
+    }
+    if (bild.data.length > MAX_BILD_BASE64) {
+      return fel("Bilden är för stor. Prova en mindre bild.", 400);
+    }
+  }
+
+  const textdel = { ...input, bild: undefined };
+  if (JSON.stringify(textdel).length > 8000) {
+    return fel("Texten är för lång. Korta ner beskrivningen.", 400);
   }
 
   if (key === "demo") {
@@ -59,9 +94,13 @@ export async function POST(req: Request) {
     return NextResponse.json(DEMO_RESULT);
   }
 
+  const parts: object[] = [];
+  if (bild) parts.push({ inlineData: { mimeType: bild.mimeType, data: bild.data } });
+  parts.push({ text: buildUserPrompt(input) });
+
   const body = JSON.stringify({
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [{ role: "user", parts: [{ text: buildUserPrompt(input) }] }],
+    contents: [{ role: "user", parts }],
     generationConfig: {
       temperature: 0.4,
       responseMimeType: "application/json",
@@ -89,8 +128,19 @@ export async function POST(req: Request) {
         senasteFel = "tomt svar";
         return null;
       }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = null;
+      }
+      if (!arGiltigtSvar(parsed)) {
+        // Modellen finns och svarar. Att prova fler modeller slösar bara gratiskvot.
+        console.error("Ofullständigt svar från", model, text.slice(0, 300));
+        throw new Error("OFULLSTANDIGT");
+      }
       fungerandeModell = model;
-      return NextResponse.json(JSON.parse(text), { headers: { "x-gemini-model": model } });
+      return NextResponse.json(parsed, { headers: { "x-gemini-model": model } });
     }
     senasteStatus = res.status;
     senasteFel = (await res.text()).slice(0, 300);
@@ -117,42 +167,42 @@ export async function POST(req: Request) {
     }
 
     if (senasteStatus === 429) {
-      return NextResponse.json(
-        { error: "Geminis gratiskvot är slut för stunden. Vänta en minut och försök igen." },
-        { status: 429 }
-      );
+      return fel("Geminis gratiskvot är slut för stunden. Vänta en minut och försök igen.", 429);
     }
-    return NextResponse.json(
-      { error: `Gemini svarade med fel (${senasteStatus}). Provade: ${[...provade].join(", ")}` },
-      { status: 502 }
-    );
+    return fel(`Gemini svarade med fel (${senasteStatus}). Provade: ${[...provade].join(", ")}`, 502);
   } catch (e) {
+    if (e instanceof Error && e.message === "OFULLSTANDIGT") {
+      return fel("Domaren gav ett ofullständigt svar. Försök igen.", 502);
+    }
     if (e instanceof Error && e.message === "NYCKEL") {
-      return NextResponse.json(
-        { error: "Gemini-nyckeln är ogiltig. Kontrollera GEMINI_API_KEY i Vercel." },
-        { status: 500 }
-      );
+      return fel("Gemini-nyckeln är ogiltig. Kontrollera GEMINI_API_KEY i Vercel.", 500);
     }
     console.error(e);
-    return NextResponse.json({ error: "Kunde inte nå Gemini. Försök igen." }, { status: 502 });
+    return fel("Kunde inte nå Gemini. Försök igen.", 502);
   }
 }
 
-const API = "https://generativelanguage.googleapis.com/v1beta";
-
-// Provas i ordning. Google byter modeller ofta, därför finns även automatisk sökning nedan.
-const KANDA_MODELLER = [
-  "gemini-flash-latest",
-  "gemini-3.8-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-  "gemini-flash-lite-latest",
-  "gemini-3.5-flash-lite",
-  "gemini-2.5-flash",
-];
-
-// Kommer ihåg vilken modell som fungerade så länge funktionen är varm
-let fungerandeModell: string | undefined;
+// Kontrollerar att svaret har allt sidan behöver för att visas
+function arGiltigtSvar(d: unknown): boolean {
+  if (!d || typeof d !== "object") return false;
+  const r = d as Record<string, unknown>;
+  const analys = r.analys as Record<string, unknown> | undefined;
+  return (
+    typeof r.betyg === "number" &&
+    typeof r.sammanfattning === "string" &&
+    !!analys &&
+    typeof analys.totalTidSek === "number" &&
+    Array.isArray(r.kriterier) &&
+    Array.isArray(r.hojer) &&
+    Array.isArray(r.sanker) &&
+    Array.isArray(r.atgarder) &&
+    Array.isArray(r.versioner) &&
+    r.versioner.length > 0 &&
+    r.versioner.every(
+      (v) => v && typeof v.uppskattatBetyg === "number" && Array.isArray(v.rader)
+    )
+  );
+}
 
 async function hamtaFlashModeller(key: string): Promise<string[]> {
   try {

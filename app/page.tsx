@@ -1,28 +1,67 @@
 "use client";
 
-import { useState } from "react";
-import { KRITERIER, KRITERIER_SV, type JudgeInput, type JudgeResult } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import {
+  KRITERIER,
+  KRITERIER_SV,
+  type JudgeInput,
+  type JudgeResult,
+  type Lage,
+  type ParkBild,
+} from "@/lib/types";
 
 const EXEMPEL: JudgeInput = {
+  lage: "foresla",
   runLangd: 45,
   niva: "Nationell elit",
   sakraTricks:
-    "Frontside air, backside air, frontside 360 air, kickflip indy, frontside smith grind, backside lipslide, nosegrind, layback grind, frontside rock, backside 5-0 på coping, frontside boardslide på rail",
+    "Frontside air, backside air, frontside 360 air, kickflip indy, frontside smith grind, backside lipslide, nosegrind, layback grind, frontside rock, backside 5-0, frontside boardslide",
   prioTricks: "Backside 540, kickflip frontside 360 (inte helt säkra än)",
-  park: "Bowl med deep end och shallow end, spine i mitten, hip till vänster, extension på deep end, handrail och ledge på streetdelen",
-  run: `1. Frontside air på deep end
-2. Backside air på deep end
-3. Frontside smith grind på shallow end
-4. Frontside air över spinen
-5. Backside lipslide på shallow end
-6. Frontside air på deep end
-7. Kickflip indy på hipen
-8. Nosegrind på extensionen
-9. Frontside 360 air på deep end
-10. Frontside rock`,
+  park: "Platform quarter, bank, spine, volcano, bridge, två extensions, hip, gap hip, deep end, platform deck",
+  run: "",
+  bild: null,
 };
 
-const TOM: JudgeInput = { runLangd: 45, niva: "", sakraTricks: "", prioTricks: "", park: "", run: "" };
+const TOM: JudgeInput = {
+  lage: "foresla",
+  runLangd: 45,
+  niva: "",
+  sakraTricks: "",
+  prioTricks: "",
+  park: "",
+  run: "",
+  bild: null,
+};
+
+const MAX_SIDA = 1600; // pixlar på längsta sidan efter komprimering
+
+// Gör bilden mindre i webbläsaren innan den skickas, så att den alltid får plats
+async function komprimeraBild(fil: File): Promise<ParkBild> {
+  const url = URL.createObjectURL(fil);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Kunde inte läsa bilden."));
+      i.src = url;
+    });
+    const skala = Math.min(1, MAX_SIDA / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * skala);
+    const h = Math.round(img.naturalHeight * skala);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Kunde inte bearbeta bilden.");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    return { mimeType: "image/jpeg", data: dataUrl.split(",")[1] };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 function utlatande(b: number) {
   if (b >= 9) return "Medaljrun";
@@ -70,14 +109,51 @@ function Gauge({ value }: { value: number }) {
 export default function Page() {
   const [f, setF] = useState<JudgeInput>(TOM);
   const [res, setRes] = useState<JudgeResult | null>(null);
+  const [resLage, setResLage] = useState<Lage>("foresla");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(1);
+  const [bildLaddar, setBildLaddar] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const filRef = useRef<HTMLInputElement>(null);
 
-  const set = (k: keyof JudgeInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setF({ ...f, [k]: k === "runLangd" ? Number(e.target.value) : e.target.value });
+  const set =
+    (k: keyof JudgeInput) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setF((prev) => ({ ...prev, [k]: k === "runLangd" ? Number(e.target.value) : e.target.value }));
 
-  async function bedom(e: React.FormEvent) {
+  async function valjBild(fil: File | undefined | null) {
+    if (!fil) return;
+    if (!fil.type.startsWith("image/")) {
+      setErr("Filen måste vara en bild (JPG, PNG eller WebP).");
+      return;
+    }
+    setErr("");
+    setBildLaddar(true);
+    try {
+      const bild = await komprimeraBild(fil);
+      setF((prev) => ({ ...prev, bild }));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Kunde inte läsa bilden.");
+    } finally {
+      setBildLaddar(false);
+    }
+  }
+
+  // Klistra in en bild med Ctrl+V var som helst på sidan
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const item = Array.from(e.clipboardData?.items || []).find((i) => i.type.startsWith("image/"));
+      if (item) {
+        e.preventDefault();
+        valjBild(item.getAsFile());
+      }
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
+  async function skicka(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
     setRes(null);
@@ -88,9 +164,10 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(f),
       });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({ error: "Oväntat svar från servern." }));
       if (!r.ok) throw new Error(data.error || "Något gick fel.");
       setRes(data);
+      setResLage(f.lage);
       setTab(1);
       setTimeout(() => document.getElementById("resultat")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (e) {
@@ -104,6 +181,71 @@ export default function Page() {
     ? KRITERIER.map((k) => res.kriterier.find((x) => x.namn === k)).filter(Boolean)
     : [];
 
+  const bildSrc = f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null;
+  const foresla = f.lage === "foresla";
+
+  const versionerPanel = res && (
+    <section className="panel">
+      <h3 className="panel-title">{resLage === "foresla" ? "Föreslagna runs" : "Förbättrade runs"}</h3>
+      <div className="tabs no-print">
+        {res.versioner.map((v, i) => (
+          <button key={v.typ} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
+            {v.typ}
+            <small>Uppskattat {v.uppskattatBetyg.toFixed(1)} / 10</small>
+          </button>
+        ))}
+      </div>
+      {res.versioner.map((v, i) => (
+        <div key={v.typ} className={`version ${tab === i ? "" : "hidden"}`}>
+          <h4 className="print-only">
+            {v.typ} · {v.uppskattatBetyg.toFixed(1)} / 10
+          </h4>
+          <p className="vdesc">{v.beskrivning}</p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tid</th>
+                  <th>Hinder</th>
+                  <th>Trick</th>
+                  <th>Motivering</th>
+                </tr>
+              </thead>
+              <tbody>
+                {v.rader.map((r, j) => {
+                  const fyllnad = /\(fyllnad\)/i.test(r.trick);
+                  const nytt = /\(nytt\)/i.test(r.trick);
+                  const namn = r.trick.replace(/\s*\((fyllnad|nytt)\)/gi, "");
+                  return (
+                    <tr key={j} className={fyllnad ? "fill-row" : ""}>
+                      <td className="time">{r.tid}</td>
+                      <td className="sek">{r.sektion}</td>
+                      <td className="trick">
+                        {namn}
+                        {fyllnad && <span className="mark fill">Fyllnad</span>}
+                        {nytt && <span className="mark new">Nytt</span>}
+                      </td>
+                      <td>
+                        {r.motivering}
+                        <div className="tags">
+                          {r.kriterier.map((k) => (
+                            <span className="tag" key={k}>
+                              {KRITERIER_SV[k] ?? k}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+
   return (
     <main className="wrap">
       <header className="top">
@@ -114,7 +256,9 @@ export default function Page() {
             <small>AI-domare · park-skateboarding</small>
           </div>
         </div>
-        <div className="live"><i /> World Skate-kriterier</div>
+        <div className="live">
+          <i /> World Skate-kriterier
+        </div>
       </header>
 
       <section className="hero">
@@ -122,8 +266,8 @@ export default function Page() {
           Bygg runnen som <span>domarna</span> vill se
         </h2>
         <p>
-          Beskriv din run så bedöms den som ett helhetsintryck utifrån de sju kriterier som används i OS. Du får
-          ett betyg, konkreta förbättringar och tre färdiga versioner av runnen.
+          Ange dina tricks och ladda upp en bild på parken. Du får en färdig run anpassad efter hindren, eller en
+          bedömning av din egen run, utifrån de sju kriterier som används i OS.
         </p>
         <div className="chips">
           {KRITERIER.map((k) => (
@@ -134,8 +278,8 @@ export default function Page() {
         </div>
       </section>
 
-      <form className="panel no-print" onSubmit={bedom}>
-        <h3 className="panel-title">1 · Åkaren</h3>
+      <form className="panel no-print" onSubmit={skicka}>
+        <h3 className="panel-title">1 · Åkaren och tricken</h3>
         <div className="grid2">
           <div className="field">
             <label htmlFor="len">Run-längd (sekunder)</label>
@@ -155,43 +299,172 @@ export default function Page() {
           </div>
         </div>
         <div className="field">
-          <label htmlFor="safe">Tricks åkaren landar säkert</label>
-          <textarea id="safe" value={f.sakraTricks} onChange={set("sakraTricks")} placeholder="t.ex. frontside air, backside smith grind, kickflip indy…" />
+          <label htmlFor="safe">Tricks du vill göra</label>
+          <textarea
+            id="safe"
+            value={f.sakraTricks}
+            onChange={set("sakraTricks")}
+            placeholder="t.ex. frontside air, backside 540, kickflip indy, frontside smith grind…"
+          />
+          <span className="hint">
+            Frontside- och backside-grinds läggs till automatiskt för att fylla ut runnen.
+          </span>
         </div>
         <div className="field">
-          <label htmlFor="prio">Tricks att prioritera</label>
-          <textarea id="prio" value={f.prioTricks} onChange={set("prioTricks")} placeholder="Tricks du vill få med, även om de inte sitter 100 %" />
+          <label htmlFor="prio">Tricks att prioritera (valfritt)</label>
+          <textarea
+            id="prio"
+            value={f.prioTricks}
+            onChange={set("prioTricks")}
+            placeholder="Tricks du vill få med, även om de inte sitter 100 %"
+          />
         </div>
 
         <h3 className="panel-title">2 · Parken</h3>
-        <div className="field">
-          <textarea id="park" value={f.park} onChange={set("park")} placeholder="Beskriv bowl, deep end, hips, spine, rails, extensions… Lämna tomt om okänd." />
-        </div>
-
-        <h3 className="panel-title">3 · Den tänkta runnen</h3>
-        <div className="field">
-          <span className="hint">Ett trick per rad, i ordning. Skriv gärna var i parken det görs.</span>
-          <textarea className="run" required value={f.run} onChange={set("run")} placeholder={"1. Frontside air på deep end\n2. Backside smith grind på shallow end\n3. …"} />
-        </div>
-
-        <div className="actions">
-          <button className="btn btn-primary" disabled={busy}>
-            {busy ? "Domarna bedömer…" : "Bedöm runnen"}
+        <input
+          ref={filRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          hidden
+          onChange={(e) => {
+            valjBild(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        {bildSrc ? (
+          <div className="park-preview">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bildSrc} alt="Uppladdad bild på parken" />
+            <div className="park-preview-bar">
+              <span>Bilden skickas med och domaren läser av hindren.</span>
+              <div className="park-preview-actions">
+                <button type="button" className="btn-small" onClick={() => filRef.current?.click()}>
+                  Byt bild
+                </button>
+                <button
+                  type="button"
+                  className="btn-small danger"
+                  onClick={() => setF((prev) => ({ ...prev, bild: null }))}
+                >
+                  Ta bort
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`dropzone ${dragOver ? "over" : ""}`}
+            onClick={() => filRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              valjBild(e.dataTransfer.files?.[0]);
+            }}
+          >
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 16l4.5-4.5a2 2 0 012.8 0L16 16m-2-2l1.5-1.5a2 2 0 012.8 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <b>{bildLaddar ? "Läser in bilden…" : "Ladda upp en bild på parken"}</b>
+            <span>Klicka, dra hit en bild eller klistra in med Ctrl+V. Gärna en bild med hindren utmärkta.</span>
           </button>
-          <button type="button" className="btn btn-ghost" onClick={() => setF(EXEMPEL)}>
+        )}
+        <div className="field" style={{ marginTop: 14 }}>
+          <label htmlFor="park">Beskrivning av parken (valfritt)</label>
+          <textarea
+            id="park"
+            value={f.park}
+            onChange={set("park")}
+            placeholder="Komplettera bilden: deep end, spine, volcano, gap hip… Lämna tomt om bilden räcker."
+          />
+        </div>
+
+        <h3 className="panel-title">3 · Vad vill du ha hjälp med?</h3>
+        <div className="mode" role="radiogroup">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={foresla}
+            className={`mode-btn ${foresla ? "active" : ""}`}
+            onClick={() => setF((prev) => ({ ...prev, lage: "foresla" }))}
+          >
+            <b>Föreslå en run</b>
+            <small>Domaren bygger den bästa runnen utifrån dina tricks och parken.</small>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!foresla}
+            className={`mode-btn ${!foresla ? "active" : ""}`}
+            onClick={() => setF((prev) => ({ ...prev, lage: "bedom" }))}
+          >
+            <b>Bedöm min run</b>
+            <small>Du skriver in en run och får betyg och förbättringar.</small>
+          </button>
+        </div>
+
+        {!foresla && (
+          <div className="field" style={{ marginTop: 14 }}>
+            <label htmlFor="run">Din run</label>
+            <span className="hint">Ett trick per rad, i ordning. Skriv gärna på vilket hinder det görs.</span>
+            <textarea
+              id="run"
+              className="run"
+              value={f.run}
+              onChange={set("run")}
+              placeholder={"1. Frontside air på deep end\n2. Backside smith grind på spinen\n3. …"}
+            />
+          </div>
+        )}
+
+        <div className="actions" style={{ marginTop: 18 }}>
+          <button className="btn btn-primary" disabled={busy || bildLaddar}>
+            {busy ? "Domarna arbetar…" : foresla ? "Föreslå en run" : "Bedöm runnen"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setF((prev) => ({ ...EXEMPEL, bild: prev.bild, lage: prev.lage }))}
+          >
             Fyll i exempel
           </button>
-          <button type="button" className="btn btn-ghost" onClick={() => { setF(TOM); setRes(null); setErr(""); }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setF(TOM);
+              setRes(null);
+              setErr("");
+            }}
+          >
             Rensa
           </button>
         </div>
+        <p className="privacy">
+          Text och bild skickas till Google Gemini. På gratisnivån kan Google använda innehållet för att förbättra
+          sina tjänster. Skicka inte personuppgifter.
+        </p>
         {err && <div className="error">{err}</div>}
       </form>
 
       {busy && (
         <div className="panel">
           <div className="loading">
-            <div className="spinner" /> Domarpanelen analyserar runnen. Det tar oftast 10–30 sekunder.
+            <div className="spinner" />
+            {foresla
+              ? "Domaren läser av parken och bygger runnen. Det tar oftast 15–40 sekunder."
+              : "Domarpanelen analyserar runnen. Det tar oftast 10–30 sekunder."}
           </div>
         </div>
       )}
@@ -199,15 +472,25 @@ export default function Page() {
       {res && (
         <div id="resultat" style={{ marginTop: 20 }}>
           <section className="panel">
-            <h3 className="panel-title">Domarnas helhetsintryck</h3>
+            <h3 className="panel-title">
+              {resLage === "foresla" ? "Föreslagen run · Vinnarversion" : "Domarnas helhetsintryck"}
+            </h3>
             <div className="scoreboard">
               <Gauge value={res.betyg} />
               <div>
-                <p className="verdict" style={{ color: farg(res.betyg) }}>{utlatande(res.betyg)}</p>
+                <p className="verdict" style={{ color: farg(res.betyg) }}>
+                  {utlatande(res.betyg)}
+                </p>
                 <p className="summary">{res.sammanfattning}</p>
                 <div className="stats">
-                  <div className="stat"><small>Uppskattad tid</small><b>{Math.round(res.analys.totalTidSek)} s</b></div>
-                  <div className="stat"><small>Antal tricks</small><b>{res.analys.antalTricks}</b></div>
+                  <div className="stat">
+                    <small>Uppskattad tid</small>
+                    <b>{Math.round(res.analys.totalTidSek)} s</b>
+                  </div>
+                  <div className="stat">
+                    <small>Antal tricks</small>
+                    <b>{res.analys.antalTricks}</b>
+                  </div>
                   <div className="stat">
                     <small>Realistisk</small>
                     <b style={{ color: res.analys.realistisk ? "var(--green)" : "var(--red)" }}>
@@ -220,21 +503,45 @@ export default function Page() {
             </div>
           </section>
 
+          {res.hinderIParken && res.hinderIParken.length > 0 && (
+            <section className="panel">
+              <h3 className="panel-title">Hinder domaren hittade</h3>
+              <div className="obstacles">
+                {bildSrc && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="obstacles-img" src={bildSrc} alt="Parken" />
+                )}
+                <div className="chips" style={{ marginTop: 0 }}>
+                  {res.hinderIParken.map((h) => (
+                    <span className="chip obstacle" key={h}>
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {resLage === "foresla" && versionerPanel}
+
           <section className="panel">
             <h3 className="panel-title">De sju kriterierna</h3>
             <div className="crit">
-              {ordnade.map((k) => k && (
-                <div className={`crit-card ${k.omdome}`} key={k.namn}>
-                  <div className="crit-head">
-                    <div>
-                      <h4>{KRITERIER_SV[k.namn]}</h4>
-                      <em>{k.namn}</em>
+              {ordnade.map(
+                (k) =>
+                  k && (
+                    <div className={`crit-card ${k.omdome}`} key={k.namn}>
+                      <div className="crit-head">
+                        <div>
+                          <h4>{KRITERIER_SV[k.namn]}</h4>
+                          <em>{k.namn}</em>
+                        </div>
+                        <span className={`badge ${k.omdome}`}>{k.omdome}</span>
+                      </div>
+                      <p>{k.kommentar}</p>
                     </div>
-                    <span className={`badge ${k.omdome}`}>{k.omdome}</span>
-                  </div>
-                  <p>{k.kommentar}</p>
-                </div>
-              ))}
+                  )
+              )}
             </div>
           </section>
 
@@ -242,59 +549,35 @@ export default function Page() {
             <div className="pm">
               <div className="up">
                 <h4>Höjer poängen</h4>
-                <ul>{res.hojer.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                <ul>
+                  {res.hojer.map((x, i) => (
+                    <li key={i}>{x}</li>
+                  ))}
+                </ul>
               </div>
               <div className="down">
                 <h4>Drar ner poängen</h4>
-                <ul>{res.sanker.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                <ul>
+                  {res.sanker.map((x, i) => (
+                    <li key={i}>{x}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           </section>
 
           <section className="panel">
-            <h3 className="panel-title">Förändringar med störst effekt</h3>
-            <ol className="steps">{res.atgarder.map((x, i) => <li key={i}>{x}</li>)}</ol>
-          </section>
-
-          <section className="panel">
-            <h3 className="panel-title">Förbättrade runs</h3>
-            <div className="tabs no-print">
-              {res.versioner.map((v, i) => (
-                <button key={v.typ} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
-                  {v.typ}
-                  <small>Uppskattat {v.uppskattatBetyg.toFixed(1)} / 10</small>
-                </button>
+            <h3 className="panel-title">
+              {resLage === "foresla" ? "Träna på detta för att höja runnen" : "Förändringar med störst effekt"}
+            </h3>
+            <ol className="steps">
+              {res.atgarder.map((x, i) => (
+                <li key={i}>{x}</li>
               ))}
-            </div>
-            {res.versioner.map((v, i) => (
-              <div key={v.typ} className={`version ${tab === i ? "" : "hidden"}`}>
-                <h4 className="print-only">{v.typ} · {v.uppskattatBetyg.toFixed(1)} / 10</h4>
-                <p className="vdesc">{v.beskrivning}</p>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr><th>Tid</th><th>Sektion</th><th>Trick</th><th>Motivering</th></tr>
-                    </thead>
-                    <tbody>
-                      {v.rader.map((r, j) => (
-                        <tr key={j}>
-                          <td className="time">{r.tid}</td>
-                          <td className="sek">{r.sektion}</td>
-                          <td className="trick">{r.trick}</td>
-                          <td>
-                            {r.motivering}
-                            <div className="tags">
-                              {r.kriterier.map((k) => <span className="tag" key={k}>{KRITERIER_SV[k] ?? k}</span>)}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
+            </ol>
           </section>
+
+          {resLage === "bedom" && versionerPanel}
 
           <section className="panel">
             <details className="reason">
@@ -304,7 +587,9 @@ export default function Page() {
           </section>
 
           <div className="actions no-print" style={{ marginTop: 20 }}>
-            <button className="btn btn-ghost" onClick={() => window.print()}>Skriv ut / spara som PDF</button>
+            <button className="btn btn-ghost" onClick={() => window.print()}>
+              Skriv ut / spara som PDF
+            </button>
           </div>
         </div>
       )}

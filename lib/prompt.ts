@@ -16,38 +16,66 @@ BEDÖMNINGSPRINCIP:
 - Ett fall eller avbruten run sänker helhetsintrycket kraftigt. Därför ska säkerhet i landning vägas mot svårighet.
 - Ett trick tar normalt 2–4 sekunder inklusive inåkning och utåkning. En 45-sekundersrun rymmer normalt 10–16 tricks. Bedöm om antalet är realistiskt för parken och nivån.
 
+PARKBILD:
+- Om en bild på parken bifogas: läs av alla hinder i bilden. Använd de namn som står utskrivna i bilden om sådana finns (t.ex. "Platform quarter", "Spine", "Volcano", "Gap hip", "Deep end"). Lista dem i fältet "hinderIParken".
+- Bygg en logisk väg genom parken utifrån hur hindren faktiskt ligger i förhållande till varandra, så att åkaren inte behöver tappa fart eller vända i onödan.
+- Använd bara hinder som finns i bilden eller i parkbeskrivningen. Hitta inte på hinder.
+
+FYLLNADSTRICKS:
+- Mellan huvudtricken får du fylla ut med frontside- och backside-grinds (t.ex. frontside/backside 50-50, 5-0, smith, feeble, crooked, nosegrind) på coping, extensions, platforms, rails eller ledges för att hålla farten och fylla tiden.
+- Markera sådana tricks med "(fyllnad)" i trick-namnet. Variera grindtyp och riktning så att de inte räknas som repetition.
+
 ARBETSSÄTT:
-- Räkna ut ungefärlig total tid för den inskickade runnen och jämför med run-längden.
+- Räkna ut ungefärlig total tid och jämför med run-längden.
 - Ge feedback endast utifrån de sju kriterierna.
 - Säg tydligt vad som höjer och vad som drar ner helhetsintrycket.
 - Prioritera förbättringar som ger störst effekt på domarnas helhetsintryck.
-- Bygg alltid tre förbättrade versioner: "Säker version" (bara tricks åkaren landar säkert), "Vinnarversion" (bästa balans mellan risk och poäng) och "Max-risk version" (högsta svårighet, får innehålla prioriterade tricks som inte är helt säkra). Max-risk ska ändå vara rimlig för åkarens nivå.
+- Bygg alltid tre versioner: "Säker version" (bara tricks åkaren landar säkert, plus fyllnadsgrinds), "Vinnarversion" (bästa balans mellan risk och poäng) och "Max-risk version" (högsta svårighet, får innehålla prioriterade tricks som inte är helt säkra). Max-risk ska ändå vara rimlig för åkarens nivå.
 - Varje version ska fylla run-längden med realistiska tidsstämplar i formatet "0:00–0:04".
+- Fältet "sektion" ska vara hindrets namn i parken.
 - Koppla varje rad till de kriterier den främst påverkar.
-- Använd bara tricks åkaren har angett i Säker version. I de andra versionerna får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
-- Om parkbeskrivningen saknas: anta en typisk OS-park (bowl-del med deep end, hips, extensions, spine, quarter pipes) och säg det i tidskommentaren.
+- I Säker version: använd bara tricks åkaren har angett, plus fyllnadsgrinds. I de andra versionerna får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
+- Om varken bild eller parkbeskrivning finns: anta en typisk OS-park (bowl med deep end, hips, extensions, spine, quarter pipes) och säg det i tidskommentaren.
 
 ÄRLIGHET:
 - Var rak och professionell. Smickra inte. Om runnen är svag, säg det och förklara varför.
-- Fältet "tankesatt" ska kort förklara hur du resonerade: vad du räknade på, vilka kriterier som vägde tyngst i just den här runnen och vilka antaganden du gjorde.
+- Fältet "tankesatt" ska kort förklara hur du resonerade: vad du räknade på, hur du valde vägen genom parken, vilka kriterier som vägde tyngst och vilka antaganden du gjorde.
+- Om bilden är otydlig eller du är osäker på ett hinder, säg det i "tankesatt".
 - Betyget är en uppskattning från en AI, inte en officiell domarbedömning.
 
 Svara alltid på svenska, i exakt det JSON-format som efterfrågas.`;
 
 export function buildUserPrompt(i: JudgeInput): string {
-  return `ÅKARENS UPPGIFTER
+  const gemensamt = `ÅKARENS UPPGIFTER
 Run-längd: ${i.runLangd} sekunder
 Nivå: ${i.niva || "ej angiven"}
-Tricks åkaren landar säkert:
+
+Tricks åkaren vill göra / landar säkert:
 ${i.sakraTricks || "ej angivet"}
 
 Tricks åkaren vill prioritera:
 ${i.prioTricks || "inga angivna"}
 
-Parkens utformning:
-${i.park || "okänd – anta en typisk OS-park"}
+Parken:
+${i.bild ? "En bild på parken är bifogad. Läs av hindren i bilden." : ""}
+${i.park ? `Beskrivning: ${i.park}` : i.bild ? "" : "okänd – anta en typisk OS-park"}`;
 
-DEN TÄNKTA RUNNEN (i ordning):
+  if (i.lage === "foresla") {
+    return `${gemensamt}
+
+UPPDRAG: FÖRESLÅ EN RUN
+Åkaren har ingen färdig run. Bygg den bästa möjliga runnen från grunden utifrån åkarens tricks och parken. Fyll ut med frontside- och backside-grinds där det behövs.
+
+Så här fyller du fälten:
+- "analys", "betyg", "sammanfattning", "kriterier", "hojer" och "sanker" gäller din Vinnarversion.
+- "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.
+- Leverera alla tre versionerna.`;
+  }
+
+  return `${gemensamt}
+
+UPPDRAG: BEDÖM ÅKARENS RUN
+Den tänkta runnen (i ordning):
 ${i.run}
 
 Bedöm runnen och leverera alla tre förbättrade versioner.`;
@@ -57,6 +85,11 @@ Bedöm runnen och leverera alla tre förbättrade versioner.`;
 export const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
+    hinderIParken: {
+      type: "ARRAY",
+      items: { type: "STRING" },
+      description: "Hinder som syns i parkbilden eller nämns i beskrivningen",
+    },
     analys: {
       type: "OBJECT",
       properties: {
@@ -117,6 +150,7 @@ export const RESPONSE_SCHEMA = {
     tankesatt: { type: "STRING" },
   },
   required: [
+    "hinderIParken",
     "analys",
     "betyg",
     "sammanfattning",

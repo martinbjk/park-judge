@@ -2,6 +2,19 @@ import type { JudgeResult } from "./types";
 
 // Exempelsvar som visas när GEMINI_API_KEY=demo. Bra för att testa designen utan nyckel.
 export const DEMO_RESULT: JudgeResult = {
+  hinderIParken: [
+    "Platform quarter",
+    "Bank",
+    "Bridge",
+    "Spine",
+    "Volcano",
+    "Extension (vänster)",
+    "Hip",
+    "Extension (höger)",
+    "Gap hip",
+    "Deep end",
+    "Platform deck",
+  ],
   analys: {
     totalTidSek: 34,
     antalTricks: 10,
@@ -43,7 +56,7 @@ export const DEMO_RESULT: JudgeResult = {
         { tid: "0:21–0:25", sektion: "Extension", trick: "Nosegrind", motivering: "Svårare hinder ger mer svårighet.", kriterier: ["Difficulty"] },
         { tid: "0:25–0:29", sektion: "Shallow end", trick: "Backside lipslide", motivering: "Ny riktning på slide.", kriterier: ["Variety"] },
         { tid: "0:29–0:33", sektion: "Deep end", trick: "Layback grind", motivering: "Stiltrick som domare gillar.", kriterier: ["Quality of execution"] },
-        { tid: "0:33–0:37", sektion: "Coping", trick: "Backside 5-0", motivering: "Kort och säker.", kriterier: ["Flow"] },
+        { tid: "0:33–0:37", sektion: "Volcano", trick: "Backside 5-0 (fyllnad)", motivering: "Håller farten in mot deep end.", kriterier: ["Flow"] },
         { tid: "0:37–0:42", sektion: "Deep end", trick: "Frontside 360 air", motivering: "Svåraste säkra trick sist.", kriterier: ["Difficulty", "Consistency"] },
       ],
     },
@@ -53,7 +66,7 @@ export const DEMO_RESULT: JudgeResult = {
       beskrivning: "Ett prioriterat trick in, placerat där fallrisken kostar minst.",
       rader: [
         { tid: "0:00–0:04", sektion: "Deep end", trick: "Frontside air", motivering: "Fart och säker start.", kriterier: ["Flow"] },
-        { tid: "0:04–0:09", sektion: "Deep end", trick: "Backside 540", motivering: "Toppsvårighet tidigt, medan benen är fräscha.", kriterier: ["Difficulty"] },
+        { tid: "0:04–0:09", sektion: "Deep end", trick: "Backside 540 (nytt)", motivering: "Toppsvårighet tidigt, medan benen är fräscha.", kriterier: ["Difficulty"] },
         { tid: "0:09–0:13", sektion: "Shallow end", trick: "Frontside smith grind", motivering: "Lugnt trick efter risk.", kriterier: ["Consistency"] },
         { tid: "0:13–0:18", sektion: "Street", trick: "Frontside boardslide på handrail", motivering: "Hela parken används.", kriterier: ["Use of the course"] },
         { tid: "0:18–0:22", sektion: "Hip", trick: "Kickflip indy", motivering: "Variation.", kriterier: ["Variety"] },

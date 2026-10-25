@@ -20,13 +20,22 @@ export const KRITERIER_SV: Record<(typeof KRITERIER)[number], string> = {
 
 export type Kriterium = (typeof KRITERIER)[number];
 
+export type Lage = "foresla" | "bedom";
+
+export type ParkBild = {
+  mimeType: string;
+  data: string; // base64 utan "data:"-prefix
+};
+
 export type JudgeInput = {
+  lage: Lage;
   runLangd: number;
   niva: string;
   sakraTricks: string;
   prioTricks: string;
   park: string;
   run: string;
+  bild?: ParkBild | null;
 };
 
 export type RunRad = {
@@ -45,6 +54,7 @@ export type RunVersion = {
 };
 
 export type JudgeResult = {
+  hinderIParken?: string[];
   analys: {
     totalTidSek: number;
     antalTricks: number;

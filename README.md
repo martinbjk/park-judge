@@ -12,8 +12,16 @@ AI-domare och coach för park-skateboarding. Bedömer en tänkt run som ett **he
 | Flow | Sömlösa övergångar, bibehållen fart |
 | Repetition | Undvikande av samma eller liknande tricks |
 
+## Två lägen
+
+1. **Föreslå en run:** ange tricks du vill göra, run-längd och ladda upp en bild på parken. Domaren läser av hindren i bilden och bygger runnen. Frontside- och backside-grinds läggs till automatiskt för att fylla ut (markeras "Fyllnad").
+2. **Bedöm min run:** skriv in din egen run och få betyg och förbättringar.
+
+Parkbilden kan laddas upp, dras in eller klistras in med Ctrl+V. Den komprimeras i webbläsaren innan den skickas. Bäst resultat blir det med en bild där hindren har namn utskrivna.
+
 Appen ger:
 
+- Hinder som domaren hittade i parken
 - Helhetsbetyg 1–10 (10 = vinnande OS-finalrun)
 - Tidsberäkning och om antalet tricks är realistiskt
 - Omdöme per kriterium, vad som höjer och sänker

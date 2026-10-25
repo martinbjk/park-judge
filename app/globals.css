@@ -145,7 +145,7 @@ input:focus, select:focus, textarea:focus {
 .timenote { color: var(--muted); font-size: 13px; margin-top: 12px; }
 
 /* ---------- Criteria ---------- */
-.crit { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.crit { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
 .crit-card {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
   border-left-width: 4px;
@@ -219,10 +219,62 @@ details.reason p { color: #c9d2de; white-space: pre-wrap; }
 .footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 40px; }
 
 @media (max-width: 820px) {
-  .scoreboard, .pm, .grid2 { grid-template-columns: 1fr; }
+  .scoreboard, .pm, .grid2, .mode, .obstacles { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(3, 1fr); }
   .live { display: none; }
 }
+
+/* ---------- Park image upload ---------- */
+.dropzone {
+  width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 34px 16px; cursor: pointer; text-align: center;
+  background: var(--panel-2); color: var(--muted); font: inherit;
+  border: 2px dashed var(--line); border-radius: 14px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.dropzone b { color: var(--text); font-family: var(--display); font-size: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+.dropzone span { font-size: 13px; max-width: 460px; }
+.dropzone:hover, .dropzone.over { border-color: var(--gold); background: var(--gold-dim); color: var(--gold); }
+.park-preview { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel-2); }
+.park-preview img { display: block; width: 100%; max-height: 420px; object-fit: contain; background: #fff; }
+.park-preview-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; font-size: 13px; color: var(--muted);
+}
+.park-preview-actions { display: flex; gap: 8px; }
+.btn-small {
+  background: transparent; border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.btn-small:hover { border-color: var(--muted); }
+.btn-small.danger { color: #ffb3b5; }
+.btn-small.danger:hover { border-color: var(--red); }
+
+/* ---------- Mode switch ---------- */
+.mode { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mode-btn {
+  text-align: left; cursor: pointer; font: inherit; color: var(--muted);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.mode-btn b { display: block; color: var(--text); font-family: var(--display); font-size: 20px; text-transform: uppercase; letter-spacing: 0.04em; }
+.mode-btn small { font-size: 13px; }
+.mode-btn.active { border-color: var(--gold); background: var(--gold-dim); box-shadow: 0 0 0 1px var(--gold) inset; }
+.mode-btn.active b { color: var(--gold); }
+
+.privacy { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+
+/* ---------- Obstacles & table marks ---------- */
+.obstacles { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; }
+.obstacles-img { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+.chip.obstacle { color: var(--text); border-color: rgba(245, 184, 46, 0.35); }
+.mark {
+  display: inline-block; margin-left: 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 5px; vertical-align: 2px;
+}
+.mark.fill { background: rgba(135, 148, 166, 0.16); color: var(--muted); }
+.mark.new { background: rgba(245, 184, 46, 0.16); color: var(--gold); }
+tr.fill-row td.trick { color: #b9c3d0; font-weight: 500; }
 
 .version.hidden { display: none; }
 .print-only { display: none; }
@@ -235,4 +287,11 @@ details.reason p { color: #c9d2de; white-space: pre-wrap; }
   .version { margin-bottom: 24px; }
   .print-only { display: block; font-family: var(--display); font-size: 20px; text-transform: uppercase; }
   details.reason > p { display: block; }
+}
+
+/* Mobilregler för nya delar (måste ligga efter grundreglerna) */
+.crit-head > div { min-width: 0; }
+@media (max-width: 820px) {
+  .mode, .obstacles { grid-template-columns: 1fr; }
+  .obstacles-img { max-width: 320px; }
 }
