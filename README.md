@@ -70,7 +70,7 @@ npm run dev
 | Variabel | Standard | Beskrivning |
 |---|---|---|
 | `GEMINI_API_KEY` | – | Krävs. `demo` ger exempelsvar. |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Byt om Google ändrar vilka modeller som är gratis. |
+| `GEMINI_MODEL` | automatiskt | Tvinga en viss modell. Utan värde provar appen kända Flash-modeller och frågar sedan Google vilka som finns. |
 | `RATE_LIMIT_PER_HOUR` | `10` | Max bedömningar per besökare och timme. |
 
 ## Bra att veta om gratisnivån
