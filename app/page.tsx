@@ -116,6 +116,15 @@ export default function Page() {
   const [resBild, setResBild] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sekunder, setSekunder] = useState(0);
+
+  // Räknar sekunder medan domaren arbetar
+  useEffect(() => {
+    if (!busy) return;
+    setSekunder(0);
+    const t = setInterval(() => setSekunder((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
   const [tab, setTab] = useState(1);
   const [bildLaddar, setBildLaddar] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -170,7 +179,14 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(f),
       });
-      const data = await r.json().catch(() => ({ error: "Oväntat svar från servern." }));
+      const data = await r.json().catch(() => ({
+        error:
+          r.status === 504 || r.status === 408
+            ? "Domaren hann inte bli klar i tid. Försök igen."
+            : r.status === 413
+              ? "Bilden är för stor. Beskär den eller välj en mindre bild."
+              : `Oväntat svar från servern (felkod ${r.status}).`,
+      }));
       if (!r.ok) throw new Error(data.error || "Något gick fel.");
       setRes(data);
       setResLage(f.lage);
@@ -487,9 +503,12 @@ export default function Page() {
         <div className="panel">
           <div className="loading">
             <div className="spinner" />
-            {foresla
-              ? "Domaren läser av parken och bygger runnen. Det tar oftast 15–40 sekunder."
-              : "Domarpanelen analyserar runnen. Det tar oftast 10–30 sekunder."}
+            <span>
+              {foresla
+                ? "Domaren läser av parken och bygger runnen. Det kan ta upp till en minut."
+                : "Domarpanelen analyserar runnen. Det kan ta upp till en minut."}
+              <b className="sekunder"> {sekunder} s</b>
+            </span>
           </div>
         </div>
       )}

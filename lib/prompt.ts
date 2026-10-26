@@ -39,6 +39,7 @@ ARBETSSÄTT:
 - Varje version ska fylla run-längden med realistiska tidsstämplar i formatet "0:00–0:04".
 - Fältet "sektion" ska vara hindrets namn i parken.
 - Koppla varje rad till de kriterier den främst påverkar.
+- Håll texterna korta så att svaret går snabbt: "motivering" högst 12 ord, varje kriteriums "kommentar" högst 25 ord, "beskrivning" högst 20 ord, "tankesatt" högst 80 ord.
 - I Säker version: använd bara tricks åkaren har angett, plus fyllnadsgrinds. I de andra versionerna får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
 - Om varken bild eller parkbeskrivning finns: anta en typisk OS-park (bowl med deep end, hips, extensions, spine, quarter pipes) och säg det i tidskommentaren.
 

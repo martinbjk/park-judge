@@ -4,7 +4,10 @@ import type { JudgeInput } from "@/lib/types";
 import { DEMO_RESULT } from "@/lib/demo";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Vercel Hobby med Fluid compute tillåter upp till 300 sekunder
+export const maxDuration = 300;
+// Egen gräns lite under Vercels, så att vi hinner svara med ett tydligt fel
+const TIDSGRANS_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 280_000;
 
 const API = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -98,31 +101,69 @@ export async function POST(req: Request) {
   if (bild) parts.push({ inlineData: { mimeType: bild.mimeType, data: bild.data } });
   parts.push({ text: buildUserPrompt(input) });
 
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [{ role: "user", parts }],
-    generationConfig: {
-      temperature: 0.4,
-      responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  });
+  // Tänkande styr hur länge Gemini resonerar innan svaret. Lägre nivå = snabbare svar.
+  // Gemini 3+ använder thinkingLevel, Gemini 2.5 använder thinkingBudget.
+  const tankeniva = (process.env.GEMINI_THINKING || "LOW").toUpperCase();
+  function tankeConfig(model: string): object | undefined {
+    if (tankeniva === "AV") return undefined;
+    if (/gemini-2\.5/.test(model)) {
+      const budget = { MINIMAL: 512, LOW: 1024, MEDIUM: 4096, HIGH: 8192 }[tankeniva] ?? 1024;
+      return { thinkingBudget: budget };
+    }
+    return { thinkingLevel: tankeniva };
+  }
+
+  function bygg(model: string, medTanke: boolean) {
+    const tanke = medTanke ? tankeConfig(model) : undefined;
+    return JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: "user", parts }],
+      generationConfig: {
+        temperature: 0.4,
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA,
+        ...(tanke ? { thinkingConfig: tanke } : {}),
+      },
+    });
+  }
+
+  const start = Date.now();
+  const tidKvar = () => TIDSGRANS_MS - (Date.now() - start);
 
   const provade = new Set<string>();
   let senasteStatus = 0;
   let senasteFel = "";
 
-  async function prova(model: string): Promise<Response | null> {
-    if (provade.has(model)) return null;
-    provade.add(model);
-    const res = await fetch(`${API}/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key! },
-      body,
-    });
+  async function prova(model: string, medTanke = true): Promise<Response | null> {
+    if (medTanke) {
+      if (provade.has(model)) return null;
+      provade.add(model);
+    }
+    if (tidKvar() < 15_000) throw new Error("TIDEN_SLUT");
+    const avbryt = new AbortController();
+    const timer = setTimeout(() => avbryt.abort(), tidKvar());
+    let res: Response;
+    try {
+      res = await fetch(`${API}/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key! },
+        body: bygg(model, medTanke),
+        signal: avbryt.signal,
+      });
+    } catch (e) {
+      if (avbryt.signal.aborted) throw new Error("TIDEN_SLUT");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
     if (res.ok) {
       const data = await res.json();
-      const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      // Hoppa över eventuella tankedelar och ta själva svaret
+      const delar: { text?: string; thought?: boolean }[] = data?.candidates?.[0]?.content?.parts || [];
+      const text = delar
+        .filter((p) => !p.thought && typeof p.text === "string")
+        .map((p) => p.text)
+        .join("");
       if (!text) {
         senasteStatus = 502;
         senasteFel = "tomt svar";
@@ -147,6 +188,8 @@ export async function POST(req: Request) {
     console.error("Gemini-fel", model, res.status, senasteFel);
     // 400 med ogiltig nyckel ska inte trigga nya försök
     if (res.status === 400 && /API key/i.test(senasteFel)) throw new Error("NYCKEL");
+    // Modellen förstod inte tankeinställningen: prova samma modell en gång utan den
+    if (res.status === 400 && medTanke && /think/i.test(senasteFel)) return prova(model, false);
     return null;
   }
 
@@ -171,6 +214,12 @@ export async function POST(req: Request) {
     }
     return fel(`Gemini svarade med fel (${senasteStatus}). Provade: ${[...provade].join(", ")}`, 502);
   } catch (e) {
+    if (e instanceof Error && e.message === "TIDEN_SLUT") {
+      return fel(
+        "Domaren hann inte bli klar i tid. Försök igen. Hjälper det inte, prova med färre tricks eller en mindre bild.",
+        504
+      );
+    }
     if (e instanceof Error && e.message === "OFULLSTANDIGT") {
       return fel("Domaren gav ett ofullständigt svar. Försök igen.", 502);
     }
