@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SYSTEM_PROMPT, buildUserPrompt, RESPONSE_SCHEMA } from "@/lib/prompt";
-import type { JudgeInput } from "@/lib/types";
+import type { JudgeInput, Matning } from "@/lib/types";
 import { DEMO_RESULT } from "@/lib/demo";
 
 export const runtime = "nodejs";
@@ -94,7 +94,16 @@ export async function POST(req: Request) {
 
   if (key === "demo") {
     await new Promise((r) => setTimeout(r, 800));
-    return NextResponse.json(DEMO_RESULT);
+    const matning: Matning = {
+      modell: "demo",
+      geminiSek: 1,
+      totalSek: 1,
+      inTokens: 3900,
+      svarTokens: 3500,
+      tankeTokens: 800,
+      forsok: 1,
+    };
+    return NextResponse.json({ ...DEMO_RESULT, matning });
   }
 
   const parts: object[] = [];
@@ -143,6 +152,7 @@ export async function POST(req: Request) {
     const avbryt = new AbortController();
     const timer = setTimeout(() => avbryt.abort(), tidKvar());
     let res: Response;
+    const anropStart = Date.now();
     try {
       res = await fetch(`${API}/models/${model}:generateContent`, {
         method: "POST",
@@ -181,7 +191,22 @@ export async function POST(req: Request) {
         throw new Error("OFULLSTANDIGT");
       }
       fungerandeModell = model;
-      return NextResponse.json(parsed, { headers: { "x-gemini-model": model } });
+      // Mätning: Google skickar med tokenförbrukningen i varje svar
+      const u = data?.usageMetadata || {};
+      const matning: Matning = {
+        modell: model,
+        geminiSek: Math.round((Date.now() - anropStart) / 1000),
+        totalSek: Math.round((Date.now() - start) / 1000),
+        inTokens: Number(u.promptTokenCount) || 0,
+        svarTokens: Number(u.candidatesTokenCount) || 0,
+        tankeTokens: Number(u.thoughtsTokenCount) || 0,
+        forsok: provade.size,
+      };
+      console.log("Mätning", JSON.stringify(matning));
+      return NextResponse.json(
+        { ...(parsed as object), matning },
+        { headers: { "x-gemini-model": model } }
+      );
     }
     senasteStatus = res.status;
     senasteFel = (await res.text()).slice(0, 300);

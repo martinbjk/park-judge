@@ -382,3 +382,4 @@ td.rownr { font-weight: 700; color: var(--text); width: 36px; }
   .hinder-ruta span { font-size: 8px; padding: 0 3px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 }
 .sekunder { color: var(--gold); font-family: var(--mono); font-weight: 500; white-space: nowrap; }
+.matning { color: var(--muted); font-size: 12px; font-family: var(--mono); margin: 14px 2px 0; line-height: 1.6; opacity: 0.8; }

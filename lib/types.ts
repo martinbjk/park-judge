@@ -76,4 +76,16 @@ export type JudgeResult = {
   atgarder: string[];
   versioner: RunVersion[];
   tankesatt: string;
+  matning?: Matning;
+};
+
+// Mätning av ett anrop, för att se var tiden går och räkna kostnad
+export type Matning = {
+  modell: string;
+  geminiSek: number; // tid för det lyckade anropet till Gemini
+  totalSek: number; // tid i servern totalt, inklusive misslyckade modellförsök
+  inTokens: number; // bild + text in
+  svarTokens: number; // själva svaret
+  tankeTokens: number; // tänkande innan svaret
+  forsok: number; // antal modeller som provades
 };

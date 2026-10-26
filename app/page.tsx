@@ -66,6 +66,9 @@ async function komprimeraBild(fil: File): Promise<ParkBild> {
   }
 }
 
+// Tal med mellanslag som tusentalsavgränsare, t.ex. 4 300
+const tal = (n: number) => n.toLocaleString("sv-SE");
+
 function utlatande(b: number) {
   if (b >= 9) return "Medaljrun";
   if (b >= 8) return "Finalklass";
@@ -656,6 +659,15 @@ export default function Page() {
               <p>{res.tankesatt}</p>
             </details>
           </section>
+
+          {res.matning && (
+            <p className="matning">
+              Modell: {res.matning.modell} · Gemini svarade på {res.matning.geminiSek} s
+              {res.matning.forsok > 1 && ` (totalt ${res.matning.totalSek} s, ${res.matning.forsok} modeller provade)`}
+              {" · "}Svar: {tal(res.matning.svarTokens + res.matning.tankeTokens)} tokens (varav tänkande{" "}
+              {tal(res.matning.tankeTokens)}) · Bild + text in: {tal(res.matning.inTokens)} tokens
+            </p>
+          )}
 
           <div className="actions no-print" style={{ marginTop: 20 }}>
             <button className="btn btn-ghost" onClick={() => window.print()}>
