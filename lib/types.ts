@@ -27,17 +27,8 @@ export type ParkBild = {
   data: string; // base64 utan "data:"-prefix
 };
 
-// Varje run byggs i steg: först bedömning + Vinnarversion, sedan de andra två parallellt
-export type Steg = "bas" | "saker" | "maxrisk";
-
-export const VERSIONSTYPER = ["Säker version", "Vinnarversion", "Max-risk version"] as const;
-export type VersionsTyp = (typeof VERSIONSTYPER)[number];
-
 export type JudgeInput = {
   lage: Lage;
-  steg?: Steg;
-  // Underlag till steg saker/maxrisk, från bas-svaret
-  kontext?: { hinder: Hinder[]; vinnare: RunVersion };
   runLangd: number;
   niva: string;
   sakraTricks: string;
@@ -59,7 +50,7 @@ export type RunRad = {
 };
 
 export type RunVersion = {
-  typ: VersionsTyp;
+  typ: "Säker version" | "Vinnarversion" | "Max-risk version";
   uppskattatBetyg: number;
   beskrivning: string;
   rader: RunRad[];

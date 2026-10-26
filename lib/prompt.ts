@@ -1,4 +1,4 @@
-import { KRITERIER, type JudgeInput, type Steg } from "./types";
+import { KRITERIER, type JudgeInput } from "./types";
 
 export const SYSTEM_PROMPT = `Du är en expertcoach och erfaren domare i park-skateboarding. Du bedömer och bygger runs strikt enligt World Skates bedömningssystem som används i olympiska spelen.
 
@@ -16,17 +16,14 @@ BEDÖMNINGSPRINCIP:
 - Ett fall eller avbruten run sänker helhetsintrycket kraftigt. Därför ska säkerhet i landning vägas mot svårighet.
 - Ett trick tar normalt 2–4 sekunder inklusive inåkning och utåkning. En 45-sekundersrun rymmer normalt 10–16 tricks. Bedöm om antalet är realistiskt för parken och nivån.
 
-DE TRE VERSIONERNA (du bygger en eller flera, enligt uppdraget):
-- "Säker version": bara tricks åkaren har angett, plus fyllnadsgrinds. Låg risk för fall.
-- "Vinnarversion": bästa balans mellan risk och poäng. Får innehålla prioriterade tricks.
-- "Max-risk version": högsta svårighet. Får innehålla prioriterade tricks som inte är helt säkra, men ska vara rimlig för åkarens nivå.
-- I Vinnarversion och Max-risk version får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
-
 PARKBILD:
-- Bilden kan innehålla text, marginaler eller annat runt parken. Bry dig bara om själva parken.
-- Bygg en logisk väg genom parken utifrån hur hindren faktiskt ligger i förhållande till varandra, så att åkaren inte behöver tappa fart eller vända i onödan.
+- Om en bild på parken bifogas: hitta alla hinder i bilden och lista dem i "hinderIParken". Bilden kan innehålla text, marginaler eller annat runt parken. Bry dig bara om själva parken.
+- Använd de namn som står utskrivna i bilden om sådana finns (t.ex. "Platform quarter", "Spine", "Volcano", "Gap hip", "Deep end"). Finns två hinder med samma namn, skilj dem åt, t.ex. "Extension (vänster)" och "Extension (höger)".
+- Ge varje hinder en "box_2d": [ymin, xmin, ymax, xmax] normaliserad till 0–1000 i förhållande till HELA bilden. Rutan ska omsluta själva hindret (rampen, kanten, copingen), inte bara den utskrivna etiketten.
+- Utan bild: lista hindren från parkbeskrivningen utan "box_2d".
 - Använd bara hinder som finns i bilden eller i parkbeskrivningen. Hitta inte på hinder. Skriv till exempel inte "Shallow end" om parken inte har någon shallow end.
-- Fältet "sektion" i varje rad MÅSTE vara exakt samma text som namnet på ett av parkens hinder.
+- Fältet "sektion" i varje rad MÅSTE vara exakt samma text som "namn" på ett av hindren i "hinderIParken".
+- Bygg en logisk väg genom parken utifrån hur hindren faktiskt ligger i förhållande till varandra, så att åkaren inte behöver tappa fart eller vända i onödan.
 - Första raden i varje version ska vara starten (t.ex. "Roll in" eller "Drop in") från ett hinder där man rimligen startar, t.ex. ett platform deck eller en platform quarter.
 
 FYLLNADSTRICKS:
@@ -34,21 +31,28 @@ FYLLNADSTRICKS:
 - Markera sådana tricks med "(fyllnad)" i trick-namnet. Variera grindtyp och riktning så att de inte räknas som repetition.
 
 ARBETSSÄTT:
+- Räkna ut ungefärlig total tid och jämför med run-längden.
+- Ge feedback endast utifrån de sju kriterierna.
+- Säg tydligt vad som höjer och vad som drar ner helhetsintrycket.
+- Prioritera förbättringar som ger störst effekt på domarnas helhetsintryck.
+- Bygg alltid tre versioner: "Säker version" (bara tricks åkaren landar säkert, plus fyllnadsgrinds), "Vinnarversion" (bästa balans mellan risk och poäng) och "Max-risk version" (högsta svårighet, får innehålla prioriterade tricks som inte är helt säkra). Max-risk ska ändå vara rimlig för åkarens nivå.
 - Varje version ska fylla run-längden med realistiska tidsstämplar i formatet "0:00–0:04".
+- Fältet "sektion" ska vara hindrets namn i parken.
 - Koppla varje rad till de kriterier den främst påverkar.
-- Ge feedback endast utifrån de sju kriterierna. Säg tydligt vad som höjer och vad som drar ner helhetsintrycket.
 - Håll texterna korta så att svaret går snabbt: "motivering" högst 12 ord, varje kriteriums "kommentar" högst 25 ord, "beskrivning" högst 20 ord, "tankesatt" högst 80 ord.
-- Om varken bild eller parkbeskrivning finns: anta en typisk OS-park (bowl med deep end, hips, extensions, spine, quarter pipes) och säg det.
+- I Säker version: använd bara tricks åkaren har angett, plus fyllnadsgrinds. I de andra versionerna får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
+- Om varken bild eller parkbeskrivning finns: anta en typisk OS-park (bowl med deep end, hips, extensions, spine, quarter pipes) och säg det i tidskommentaren.
 
 ÄRLIGHET:
 - Var rak och professionell. Smickra inte. Om runnen är svag, säg det och förklara varför.
-- Om bilden är otydlig eller du är osäker på ett hinder, säg det.
+- Fältet "tankesatt" ska kort förklara hur du resonerade: vad du räknade på, hur du valde vägen genom parken, vilka kriterier som vägde tyngst och vilka antaganden du gjorde.
+- Om bilden är otydlig eller du är osäker på ett hinder, säg det i "tankesatt".
 - Betyget är en uppskattning från en AI, inte en officiell domarbedömning.
 
 Svara alltid på svenska, i exakt det JSON-format som efterfrågas.`;
 
-function akarensUppgifter(i: JudgeInput): string {
-  return `ÅKARENS UPPGIFTER
+export function buildUserPrompt(i: JudgeInput): string {
+  const gemensamt = `ÅKARENS UPPGIFTER
 Run-längd: ${i.runLangd} sekunder
 Nivå: ${i.niva || "ej angiven"}
 
@@ -59,94 +63,32 @@ Tricks åkaren vill prioritera:
 ${i.prioTricks || "inga angivna"}
 
 Parken:
-${i.bild ? "En bild på parken är bifogad." : ""}
+${i.bild ? "En bild på parken är bifogad. Läs av hindren i bilden." : ""}
 ${i.park ? `Beskrivning: ${i.park}` : i.bild ? "" : "okänd – anta en typisk OS-park"}`;
-}
-
-export function buildUserPrompt(i: JudgeInput, steg: Steg): string {
-  const grund = akarensUppgifter(i);
-
-  // Steg 2 och 3: bygg en av de andra versionerna utifrån redan hittade hinder
-  if (steg !== "bas") {
-    const typ = steg === "saker" ? "Säker version" : "Max-risk version";
-    const hinder = (i.kontext?.hinder || []).map((h) => `- ${h.namn}`).join("\n");
-    const vinnare = (i.kontext?.vinnare?.rader || [])
-      .map((r, n) => `${n + 1}. ${r.trick} – ${r.sektion}`)
-      .join("\n");
-    return `${grund}
-
-PARKENS HINDER (redan identifierade, använd exakt dessa namn i "sektion"):
-${hinder || "- inga identifierade"}
-
-VINNARVERSIONEN SOM REDAN ÄR BYGGD (för jämförelse):
-${vinnare || "saknas"}
-
-UPPDRAG: BYGG "${typ.toUpperCase()}"
-Bygg endast ${typ}. ${
-      steg === "saker"
-        ? "Den ska vara säkrare än Vinnarversionen: bara tricks åkaren har angett, plus fyllnadsgrinds."
-        : "Den ska vara svårare än Vinnarversionen och ta med de prioriterade tricken."
-    } Använd gärna samma väg genom parken som Vinnarversionen när den fungerar, men byt tricks efter versionens syfte. Sätt "typ" till "${typ}" och ett uppskattat betyg 1–10.`;
-  }
-
-  const hinderInstruktion = i.bild
-    ? `HINDER: Hitta alla hinder i bilden och lista dem i "hinderIParken". Använd de namn som står utskrivna i bilden om sådana finns (t.ex. "Platform quarter", "Spine", "Volcano", "Gap hip", "Deep end"). Finns två hinder med samma namn, skilj dem åt, t.ex. "Extension (vänster)" och "Extension (höger)". Ge varje hinder en "box_2d": [ymin, xmin, ymax, xmax] normaliserad till 0–1000 i förhållande till HELA bilden. Rutan ska omsluta själva hindret (rampen, kanten, copingen), inte bara den utskrivna etiketten.`
-    : `HINDER: Lista parkens hinder i "hinderIParken" utan "box_2d".`;
 
   if (i.lage === "foresla") {
-    return `${grund}
+    return `${gemensamt}
 
-${hinderInstruktion}
-
-UPPDRAG: FÖRESLÅ EN RUN – BYGG VINNARVERSIONEN
-Åkaren har ingen färdig run. Bygg den bästa möjliga Vinnarversionen från grunden utifrån åkarens tricks och parken. Fyll ut med frontside- och backside-grinds där det behövs. Säker version och Max-risk version byggs separat senare, bygg inte dem nu.
+UPPDRAG: FÖRESLÅ EN RUN
+Åkaren har ingen färdig run. Bygg den bästa möjliga runnen från grunden utifrån åkarens tricks och parken. Fyll ut med frontside- och backside-grinds där det behövs.
 
 Så här fyller du fälten:
-- "vinnarversion" är runnen.
-- "analys", "betyg", "sammanfattning", "kriterier", "hojer" och "sanker" gäller Vinnarversionen.
+- "analys", "betyg", "sammanfattning", "kriterier", "hojer" och "sanker" gäller din Vinnarversion.
 - "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.
-- "tankesatt" förklarar kort hur du valde vägen genom parken och vilka kriterier som vägde tyngst.`;
+- Leverera alla tre versionerna.`;
   }
 
-  return `${grund}
+  return `${gemensamt}
 
-${hinderInstruktion}
-
-UPPDRAG: BEDÖM ÅKARENS RUN – OCH BYGG EN FÖRBÄTTRAD VINNARVERSION
+UPPDRAG: BEDÖM ÅKARENS RUN
 Den tänkta runnen (i ordning):
 ${i.run}
 
-Så här fyller du fälten:
-- "analys", "betyg", "sammanfattning", "kriterier", "hojer", "sanker" och "atgarder" gäller ÅKARENS run ovan.
-- "vinnarversion" är din förbättrade version av runnen. Säker version och Max-risk version byggs separat senare, bygg inte dem nu.
-- "tankesatt" förklarar kort hur du räknade och vilka kriterier som vägde tyngst.`;
+Bedöm runnen och leverera alla tre förbättrade versioner.`;
 }
 
-const RAD_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    tid: { type: "STRING" },
-    sektion: { type: "STRING" },
-    trick: { type: "STRING" },
-    motivering: { type: "STRING" },
-    kriterier: { type: "ARRAY", items: { type: "STRING", enum: [...KRITERIER] } },
-  },
-  required: ["tid", "sektion", "trick", "motivering", "kriterier"],
-};
-
-export const VERSION_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    typ: { type: "STRING", enum: ["Säker version", "Vinnarversion", "Max-risk version"] },
-    uppskattatBetyg: { type: "NUMBER" },
-    beskrivning: { type: "STRING" },
-    rader: { type: "ARRAY", items: RAD_SCHEMA },
-  },
-  required: ["typ", "uppskattatBetyg", "beskrivning", "rader"],
-};
-
-// Steg 1: hinder, bedömning och Vinnarversionen
-export const BAS_SCHEMA = {
+// JSON-schema som tvingar Gemini att svara strukturerat
+export const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     hinderIParken: {
@@ -196,7 +138,32 @@ export const BAS_SCHEMA = {
       items: { type: "STRING" },
       description: "Konkreta förändringar, viktigast först",
     },
-    vinnarversion: VERSION_SCHEMA,
+    versioner: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          typ: { type: "STRING", enum: ["Säker version", "Vinnarversion", "Max-risk version"] },
+          uppskattatBetyg: { type: "NUMBER" },
+          beskrivning: { type: "STRING" },
+          rader: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                tid: { type: "STRING" },
+                sektion: { type: "STRING" },
+                trick: { type: "STRING" },
+                motivering: { type: "STRING" },
+                kriterier: { type: "ARRAY", items: { type: "STRING", enum: [...KRITERIER] } },
+              },
+              required: ["tid", "sektion", "trick", "motivering", "kriterier"],
+            },
+          },
+        },
+        required: ["typ", "uppskattatBetyg", "beskrivning", "rader"],
+      },
+    },
     tankesatt: { type: "STRING" },
   },
   required: [
@@ -208,7 +175,7 @@ export const BAS_SCHEMA = {
     "hojer",
     "sanker",
     "atgarder",
-    "vinnarversion",
+    "versioner",
     "tankesatt",
   ],
 };

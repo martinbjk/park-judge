@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { SYSTEM_PROMPT, buildUserPrompt, BAS_SCHEMA, VERSION_SCHEMA } from "@/lib/prompt";
-import type { JudgeInput, JudgeResult, RunVersion, Steg } from "@/lib/types";
+import { SYSTEM_PROMPT, buildUserPrompt, RESPONSE_SCHEMA } from "@/lib/prompt";
+import type { JudgeInput } from "@/lib/types";
 import { DEMO_RESULT } from "@/lib/demo";
 
 export const runtime = "nodejs";
@@ -30,18 +30,18 @@ let fungerandeModell: string | undefined;
 
 // Enkel spärr per besökare. Den nollställs när servern startar om,
 // så den skyddar mot misstag och enklare missbruk, inte mot allt.
-// Bara steg "bas" räknas som en bedömning. De två extra versionerna har en egen, större kvot.
 const traffar = new Map<string, number[]>();
 
-function forMangaForfragningar(nyckel: string, grans: number): boolean {
+function forMangaForfragningar(ip: string): boolean {
+  const grans = Number(process.env.RATE_LIMIT_PER_HOUR || 10);
   const nu = Date.now();
-  const lista = (traffar.get(nyckel) || []).filter((t) => nu - t < 3_600_000);
+  const lista = (traffar.get(ip) || []).filter((t) => nu - t < 3_600_000);
   if (lista.length >= grans) {
-    traffar.set(nyckel, lista);
+    traffar.set(ip, lista);
     return true;
   }
   lista.push(nu);
-  traffar.set(nyckel, lista);
+  traffar.set(ip, lista);
   return false;
 }
 
@@ -49,15 +49,15 @@ function fel(meddelande: string, status: number) {
   return NextResponse.json({ error: meddelande }, { status });
 }
 
-const TYP_FOR_STEG: Record<Exclude<Steg, "bas">, RunVersion["typ"]> = {
-  saker: "Säker version",
-  maxrisk: "Max-risk version",
-};
-
 export async function POST(req: Request) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     return fel("GEMINI_API_KEY saknas. Lägg in den i Vercel under Settings → Environment Variables.", 500);
+  }
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "okänd";
+  if (forMangaForfragningar(ip)) {
+    return fel("Du har nått gränsen för bedömningar den här timmen. Försök igen senare.", 429);
   }
 
   let input: JudgeInput;
@@ -67,31 +67,14 @@ export async function POST(req: Request) {
     return fel("Ogiltig förfrågan. Bilden kan vara för stor, prova en mindre.", 400);
   }
 
-  const steg: Steg = input.steg === "saker" || input.steg === "maxrisk" ? input.steg : "bas";
-  input.steg = steg;
-
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "okänd";
-  const grans = Number(process.env.RATE_LIMIT_PER_HOUR || 10);
-  if (
-    steg === "bas"
-      ? forMangaForfragningar(`bas:${ip}`, grans)
-      : forMangaForfragningar(`version:${ip}`, grans * 3)
-  ) {
-    return fel("Du har nått gränsen för bedömningar den här timmen. Försök igen senare.", 429);
-  }
-
   const lage = input.lage === "bedom" ? "bedom" : "foresla";
   input.lage = lage;
 
-  if (steg === "bas") {
-    if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
-      return fel("Skriv in runnen du vill få bedömd, eller välj Föreslå en run.", 400);
-    }
-    if (lage === "foresla" && (!input.sakraTricks || input.sakraTricks.trim().length < 3)) {
-      return fel("Skriv in vilka tricks åkaren vill göra, så kan en run föreslås.", 400);
-    }
-  } else if (!input.kontext?.vinnare || !Array.isArray(input.kontext.vinnare.rader)) {
-    return fel("Vinnarversionen saknas. Gör om bedömningen.", 400);
+  if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
+    return fel("Skriv in runnen du vill få bedömd, eller välj Föreslå en run.", 400);
+  }
+  if (lage === "foresla" && (!input.sakraTricks || input.sakraTricks.trim().length < 3)) {
+    return fel("Skriv in vilka tricks åkaren vill göra, så kan en run föreslås.", 400);
   }
 
   const bild = input.bild || null;
@@ -105,16 +88,18 @@ export async function POST(req: Request) {
   }
 
   const textdel = { ...input, bild: undefined };
-  if (JSON.stringify(textdel).length > 20_000) {
+  if (JSON.stringify(textdel).length > 8000) {
     return fel("Texten är för lång. Korta ner beskrivningen.", 400);
   }
 
-  if (key === "demo") return demoSvar(steg);
+  if (key === "demo") {
+    await new Promise((r) => setTimeout(r, 800));
+    return NextResponse.json(DEMO_RESULT);
+  }
 
   const parts: object[] = [];
   if (bild) parts.push({ inlineData: { mimeType: bild.mimeType, data: bild.data } });
-  parts.push({ text: buildUserPrompt(input, steg) });
-  const schema = steg === "bas" ? BAS_SCHEMA : VERSION_SCHEMA;
+  parts.push({ text: buildUserPrompt(input) });
 
   // Tänkande styr hur länge Gemini resonerar innan svaret. Lägre nivå = snabbare svar.
   // Gemini 3+ använder thinkingLevel, Gemini 2.5 använder thinkingBudget.
@@ -136,36 +121,21 @@ export async function POST(req: Request) {
       generationConfig: {
         temperature: 0.4,
         responseMimeType: "application/json",
-        responseSchema: schema,
+        responseSchema: RESPONSE_SCHEMA,
         ...(tanke ? { thinkingConfig: tanke } : {}),
       },
     });
-  }
-
-  // Gör om Geminis svar till det sidan förväntar sig, eller null om något saknas
-  function tolka(parsed: unknown): JudgeResult | RunVersion | null {
-    if (steg === "bas") {
-      if (!parsed || typeof parsed !== "object") return null;
-      const { vinnarversion, ...rest } = parsed as Record<string, unknown>;
-      if (!arGiltigVersion(vinnarversion)) return null;
-      const res = { ...rest, versioner: [{ ...(vinnarversion as RunVersion), typ: "Vinnarversion" }] };
-      return arGiltigtSvar(res) ? (res as unknown as JudgeResult) : null;
-    }
-    if (!arGiltigVersion(parsed)) return null;
-    return { ...(parsed as RunVersion), typ: TYP_FOR_STEG[steg] };
   }
 
   const start = Date.now();
   const tidKvar = () => TIDSGRANS_MS - (Date.now() - start);
 
   const provade = new Set<string>();
-  const serverfelForsok = new Set<string>();
   let senasteStatus = 0;
   let senasteFel = "";
 
-  // omforsok = samma modell provas igen (utan tankeinställning eller efter tillfälligt fel)
-  async function prova(model: string, medTanke = true, omforsok = false): Promise<Response | null> {
-    if (!omforsok) {
+  async function prova(model: string, medTanke = true): Promise<Response | null> {
+    if (medTanke) {
       if (provade.has(model)) return null;
       provade.add(model);
     }
@@ -205,32 +175,21 @@ export async function POST(req: Request) {
       } catch {
         parsed = null;
       }
-      const resultat = tolka(parsed);
-      if (!resultat) {
+      if (!arGiltigtSvar(parsed)) {
         // Modellen finns och svarar. Att prova fler modeller slösar bara gratiskvot.
-        console.error("Ofullständigt svar från", model, steg, text.slice(0, 300));
+        console.error("Ofullständigt svar från", model, text.slice(0, 300));
         throw new Error("OFULLSTANDIGT");
       }
       fungerandeModell = model;
-      return NextResponse.json(resultat, { headers: { "x-gemini-model": model } });
+      return NextResponse.json(parsed, { headers: { "x-gemini-model": model } });
     }
     senasteStatus = res.status;
     senasteFel = (await res.text()).slice(0, 300);
-    console.error("Gemini-fel", model, steg, res.status, senasteFel);
+    console.error("Gemini-fel", model, res.status, senasteFel);
     // 400 med ogiltig nyckel ska inte trigga nya försök
     if (res.status === 400 && /API key/i.test(senasteFel)) throw new Error("NYCKEL");
     // Modellen förstod inte tankeinställningen: prova samma modell en gång utan den
-    if (res.status === 400 && medTanke && /think/i.test(senasteFel)) return prova(model, false, true);
-    // Tillfälligt fel hos Google (5xx): modellen finns, så försök en gång till med samma modell
-    // i stället för att gå igenom alla modeller. Ger det fel igen, ge upp.
-    if (res.status >= 500) {
-      if (!serverfelForsok.has(model)) {
-        serverfelForsok.add(model);
-        await new Promise((r) => setTimeout(r, 1500));
-        return prova(model, medTanke, true);
-      }
-      throw new Error("SERVERFEL");
-    }
+    if (res.status === 400 && medTanke && /think/i.test(senasteFel)) return prova(model, false);
     return null;
   }
 
@@ -261,9 +220,6 @@ export async function POST(req: Request) {
         504
       );
     }
-    if (e instanceof Error && e.message === "SERVERFEL") {
-      return fel("Gemini har tillfälliga problem just nu. Vänta en stund och försök igen.", 503);
-    }
     if (e instanceof Error && e.message === "OFULLSTANDIGT") {
       return fel("Domaren gav ett ofullständigt svar. Försök igen.", 502);
     }
@@ -275,30 +231,7 @@ export async function POST(req: Request) {
   }
 }
 
-// Demoläge: samma flöde som på riktigt, med fördröjning så att stegen syns
-async function demoSvar(steg: Steg) {
-  const vanta = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const hitta = (typ: RunVersion["typ"]) => DEMO_RESULT.versioner.find((v) => v.typ === typ)!;
-  if (steg === "bas") {
-    await vanta(1500);
-    return NextResponse.json({ ...DEMO_RESULT, versioner: [hitta("Vinnarversion")] });
-  }
-  await vanta(steg === "saker" ? 2500 : 4000);
-  return NextResponse.json(hitta(TYP_FOR_STEG[steg]));
-}
-
-function arGiltigVersion(v: unknown): boolean {
-  if (!v || typeof v !== "object") return false;
-  const r = v as Record<string, unknown>;
-  return (
-    typeof r.uppskattatBetyg === "number" &&
-    Array.isArray(r.rader) &&
-    r.rader.length > 0 &&
-    r.rader.every((x) => x && typeof x.trick === "string" && typeof x.sektion === "string")
-  );
-}
-
-// Kontrollerar att bas-svaret har allt sidan behöver för att visas
+// Kontrollerar att svaret har allt sidan behöver för att visas
 function arGiltigtSvar(d: unknown): boolean {
   if (!d || typeof d !== "object") return false;
   const r = d as Record<string, unknown>;
@@ -314,7 +247,9 @@ function arGiltigtSvar(d: unknown): boolean {
     Array.isArray(r.atgarder) &&
     Array.isArray(r.versioner) &&
     r.versioner.length > 0 &&
-    r.versioner.every(arGiltigVersion)
+    r.versioner.every(
+      (v) => v && typeof v.uppskattatBetyg === "number" && Array.isArray(v.rader)
+    )
   );
 }
 
