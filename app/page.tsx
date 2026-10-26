@@ -6,12 +6,20 @@ import BeskarBild from "./BeskarBild";
 import {
   KRITERIER,
   KRITERIER_SV,
+  VERSIONSTYPER,
   type JudgeInput,
   type JudgeResult,
   type Lage,
   type ParkBild,
+  type RunVersion,
 } from "@/lib/types";
 import RunKarta from "./RunKarta";
+
+type ExtraSteg = "saker" | "maxrisk";
+type ExtraStatus =
+  | { status: "laddar"; start: number }
+  | { status: "klar"; version: RunVersion }
+  | { status: "fel"; fel: string };
 
 const EXEMPEL: JudgeInput = {
   lage: "foresla",
@@ -126,6 +134,18 @@ export default function Page() {
     return () => clearInterval(t);
   }, [busy]);
   const [tab, setTab] = useState(1);
+  const [extra, setExtra] = useState<Partial<Record<ExtraSteg, ExtraStatus>>>({});
+  const [resUnderlag, setResUnderlag] = useState<JudgeInput | null>(null);
+  const korningRef = useRef(0);
+
+  // Klocka för "Bygger… X s" så länge någon version byggs
+  const [nu, setNu] = useState(() => Date.now());
+  const naganLaddar = Object.values(extra).some((x) => x?.status === "laddar");
+  useEffect(() => {
+    if (!naganLaddar) return;
+    const t = setInterval(() => setNu(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [naganLaddar]);
   const [bildLaddar, setBildLaddar] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [beskar, setBeskar] = useState(false);
@@ -168,31 +188,65 @@ export default function Page() {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
+  // Skickar ett steg till servern och ger tillbaka svaret, eller kastar ett begripligt fel
+  async function anropa<T>(body: JudgeInput): Promise<T> {
+    const r = await fetch("/api/judge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({
+      error:
+        r.status === 504 || r.status === 408
+          ? "Domaren hann inte bli klar i tid. Försök igen."
+          : r.status === 413
+            ? "Bilden är för stor. Beskär den eller välj en mindre bild."
+            : `Oväntat svar från servern (felkod ${r.status}).`,
+    }));
+    if (!r.ok) throw new Error(data.error || "Något gick fel.");
+    return data as T;
+  }
+
+  // Bygger Säker version eller Max-risk version när Vinnarversionen är klar
+  async function byggExtra(steg: ExtraSteg, underlag: JudgeInput, bas: JudgeResult, korning: number) {
+    setExtra((prev) => ({ ...prev, [steg]: { status: "laddar", start: Date.now() } }));
+    try {
+      const version = await anropa<RunVersion>({
+        ...underlag,
+        steg,
+        kontext: { hinder: normaliseraHinder(bas.hinderIParken), vinnare: bas.versioner[0] },
+      });
+      if (korning !== korningRef.current) return; // en nyare körning har startat
+      setExtra((prev) => ({ ...prev, [steg]: { status: "klar", version } }));
+    } catch (e) {
+      if (korning !== korningRef.current) return;
+      setExtra((prev) => ({
+        ...prev,
+        [steg]: { status: "fel", fel: e instanceof Error ? e.message : "Något gick fel." },
+      }));
+    }
+  }
+
   async function skicka(e: React.FormEvent) {
     e.preventDefault();
+    const korning = ++korningRef.current;
+    const underlag: JudgeInput = { ...f, steg: undefined, kontext: undefined };
     setErr("");
     setRes(null);
+    setExtra({});
     setBusy(true);
     try {
-      const r = await fetch("/api/judge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f),
-      });
-      const data = await r.json().catch(() => ({
-        error:
-          r.status === 504 || r.status === 408
-            ? "Domaren hann inte bli klar i tid. Försök igen."
-            : r.status === 413
-              ? "Bilden är för stor. Beskär den eller välj en mindre bild."
-              : `Oväntat svar från servern (felkod ${r.status}).`,
-      }));
-      if (!r.ok) throw new Error(data.error || "Något gick fel.");
-      setRes(data);
+      const bas = await anropa<JudgeResult>({ ...underlag, steg: "bas" });
+      if (korning !== korningRef.current) return;
+      setRes(bas);
       setResLage(f.lage);
+      setResUnderlag(underlag);
       setResBild(f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null);
       setTab(1);
       setTimeout(() => document.getElementById("resultat")?.scrollIntoView({ behavior: "smooth" }), 50);
+      // Säker version och Max-risk version byggs samtidigt i bakgrunden
+      byggExtra("saker", underlag, bas, korning);
+      byggExtra("maxrisk", underlag, bas, korning);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Något gick fel.");
     } finally {
@@ -209,18 +263,67 @@ export default function Page() {
   const bildSrc = f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null;
   const foresla = f.lage === "foresla";
 
+  // De tre flikarna i fast ordning. Vinnarversionen kommer från bas-svaret, de andra byggs efteråt.
+  const flikar = res
+    ? VERSIONSTYPER.map((typ) => {
+        const fran = res.versioner.find((v) => v.typ === typ);
+        if (fran) return { typ, status: "klar" as const, version: fran };
+        const steg: ExtraSteg = typ === "Säker version" ? "saker" : "maxrisk";
+        const x = extra[steg];
+        if (x?.status === "klar") return { typ, status: "klar" as const, version: x.version };
+        if (x?.status === "fel") return { typ, status: "fel" as const, fel: x.fel, steg };
+        return { typ, status: "laddar" as const, start: x?.status === "laddar" ? x.start : Date.now(), steg };
+      })
+    : [];
+
   const versionerPanel = res && (
     <section className="panel">
       <h3 className="panel-title">{resLage === "foresla" ? "Föreslagna runs" : "Förbättrade runs"}</h3>
       <div className="tabs no-print">
-        {res.versioner.map((v, i) => (
-          <button key={v.typ} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
-            {v.typ}
-            <small>Uppskattat {v.uppskattatBetyg.toFixed(1)} / 10</small>
+        {flikar.map((fl, i) => (
+          <button key={fl.typ} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
+            {fl.typ}
+            <small>
+              {fl.status === "klar"
+                ? `Uppskattat ${fl.version.uppskattatBetyg.toFixed(1)} / 10`
+                : fl.status === "fel"
+                  ? "Misslyckades"
+                  : `Bygger… ${Math.max(0, Math.round((nu - fl.start) / 1000))} s`}
+            </small>
           </button>
         ))}
       </div>
-      {res.versioner.map((v, i) => (
+      {flikar.map((fl, i) =>
+        fl.status !== "klar" ? (
+          <div key={fl.typ} className={`version ${tab === i ? "" : "hidden"} no-print`}>
+            {fl.status === "laddar" ? (
+              <div className="loading version-laddar">
+                <div className="spinner" />
+                <span>
+                  Bygger {fl.typ.toLowerCase()} utifrån Vinnarversionen och parkens hinder.
+                  <b className="sekunder"> {Math.max(0, Math.round((nu - fl.start) / 1000))} s</b>
+                </span>
+              </div>
+            ) : (
+              <div className="version-fel">
+                <div className="error" style={{ marginTop: 0 }}>
+                  {fl.fel}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ marginTop: 12 }}
+                  onClick={() => resUnderlag && byggExtra(fl.steg, resUnderlag, res, korningRef.current)}
+                >
+                  Försök igen
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          (() => {
+            const v = fl.version;
+            return (
         <div key={v.typ} className={`version ${tab === i ? "" : "hidden"}`}>
           <h4 className="print-only">
             {v.typ} · {v.uppskattatBetyg.toFixed(1)} / 10
@@ -271,7 +374,10 @@ export default function Page() {
             </table>
           </div>
         </div>
-      ))}
+            );
+          })()
+        )
+      )}
     </section>
   );
 
@@ -485,7 +591,9 @@ export default function Page() {
             className="btn btn-ghost"
             onClick={() => {
               setF(TOM);
+              korningRef.current++;
               setRes(null);
+              setExtra({});
               setErr("");
             }}
           >
