@@ -35,7 +35,12 @@ export function huvudversion(valda: VersionsTyp[]): VersionsTyp {
   return valda.includes("Vinnarversion") ? "Vinnarversion" : valda[0] ?? "Vinnarversion";
 }
 
+// Ett hinder som tränaren själv har pekat ut på parkbilden. x och y på skala 0–1000.
+export type ParkMarkering = { namn: string; x: number; y: number };
+
 export type JudgeInput = {
+  // Hinder som tränaren märkt ut. Finns de behöver Gemini inte gissa var hindren ligger.
+  markeringar?: ParkMarkering[];
   // Vilka versioner som ska byggas. Färre versioner = snabbare svar.
   versioner?: VersionsTyp[];
   lage: Lage;

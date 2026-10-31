@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normaliseraHinder } from "@/lib/hinder";
 import BeskarBild from "./BeskarBild";
+import MarkeraHinder from "./MarkeraHinder";
+import { bildMedEtiketter, hamtaParker, kantKlass, sparaPark, taBortPark, type SparadPark } from "@/lib/parker";
 import {
   KRITERIER,
   KRITERIER_SV,
@@ -137,6 +139,23 @@ export default function Page() {
   const [bildLaddar, setBildLaddar] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [beskar, setBeskar] = useState(false);
+  const [markera, setMarkera] = useState(false);
+  const [parkNamn, setParkNamn] = useState("");
+  const [parker, setParker] = useState<SparadPark[]>([]);
+  const [parkInfo, setParkInfo] = useState("");
+
+  // Sparade parker finns bara i webbläsaren, så de läses in först när sidan har laddats
+  useEffect(() => {
+    setParker(hamtaParker());
+  }, []);
+
+  function valjSparadPark(p: SparadPark) {
+    setF((prev) => ({ ...prev, bild: p.bild, markeringar: p.markeringar }));
+    setParkNamn(p.namn);
+    setBeskar(false);
+    setMarkera(false);
+    setParkInfo(`${p.namn} är vald, med ${p.markeringar.length} utmärkta hinder.`);
+  }
   const filRef = useRef<HTMLInputElement>(null);
 
   const set =
@@ -154,8 +173,11 @@ export default function Page() {
     setBildLaddar(true);
     try {
       const bild = await komprimeraBild(fil);
-      setF((prev) => ({ ...prev, bild }));
+      setF((prev) => ({ ...prev, bild, markeringar: [] }));
       setBeskar(false);
+      setMarkera(false);
+      setParkNamn("");
+      setParkInfo("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Kunde inte läsa bilden.");
     } finally {
@@ -178,6 +200,10 @@ export default function Page() {
 
   async function skicka(e: React.FormEvent) {
     e.preventDefault();
+    const markeringar = f.bild ? f.markeringar || [] : [];
+    // Med utmärkta hinder skickas bilden med namnen inritade, så att domaren läser dem säkert
+    const bildAttSkicka = f.bild && markeringar.length ? await bildMedEtiketter(f.bild, markeringar) : f.bild;
+    const skickas: JudgeInput = { ...f, bild: bildAttSkicka, markeringar };
     setErr("");
     setRes(null);
     setBusy(true);
@@ -185,7 +211,7 @@ export default function Page() {
       const r = await fetch("/api/judge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(f),
+        body: JSON.stringify(skickas),
       });
       const data = await r.json().catch(() => ({
         error:
@@ -198,7 +224,7 @@ export default function Page() {
       if (!r.ok) throw new Error(data.error || "Något gick fel.");
       setRes(data);
       setResLage(f.lage);
-      setResBild(f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null);
+      setResBild(bildAttSkicka ? `data:${bildAttSkicka.mimeType};base64,${bildAttSkicka.data}` : null);
       const typer = (data as JudgeResult).versioner.map((v) => v.typ);
       setTab(Math.max(0, typer.indexOf(huvudversion(typer))));
       setTimeout(() => document.getElementById("resultat")?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -362,6 +388,30 @@ export default function Page() {
         </div>
 
         <h3 className="panel-title">2 · Parken</h3>
+        {parker.length > 0 && !markera && !beskar && (
+          <div className="sparade-parker">
+            <span className="hint">Sparade parker:</span>
+            {parker.map((p) => (
+              <span key={p.id} className={`park-chip ${parkNamn === p.namn ? "vald" : ""}`}>
+                <button type="button" onClick={() => valjSparadPark(p)}>
+                  {p.namn} <small>· {p.markeringar.length} hinder</small>
+                </button>
+                <button
+                  type="button"
+                  className="park-ta-bort"
+                  aria-label={`Ta bort ${p.namn}`}
+                  title="Ta bort sparad park"
+                  onClick={() => {
+                    setParker(taBortPark(p.id));
+                    if (parkNamn === p.namn) setParkNamn("");
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <input
           ref={filRef}
           type="file"
@@ -377,27 +427,70 @@ export default function Page() {
             bild={f.bild}
             onAvbryt={() => setBeskar(false)}
             onKlar={(ny) => {
-              setF((prev) => ({ ...prev, bild: ny }));
+              setF((prev) => ({ ...prev, bild: ny, markeringar: [] }));
               setBeskar(false);
+            }}
+          />
+        ) : f.bild && markera ? (
+          <MarkeraHinder
+            bild={f.bild}
+            startMarkeringar={f.markeringar || []}
+            startNamn={parkNamn}
+            onAvbryt={() => setMarkera(false)}
+            onKlar={(markeringar, namn) => {
+              setF((prev) => ({ ...prev, markeringar }));
+              setMarkera(false);
+              setParkNamn(namn);
+              if (namn && f.bild) {
+                const r = sparaPark({ namn, bild: f.bild, markeringar });
+                if (r.ok) {
+                  setParker(hamtaParker());
+                  setParkInfo(`${namn} är sparad med ${markeringar.length} hinder. Nästa gång väljer du den i listan ovanför.`);
+                } else setParkInfo(r.fel);
+              } else {
+                setParkInfo(`${markeringar.length} hinder utmärkta. Ge parken ett namn om du vill spara den till nästa gång.`);
+              }
             }}
           />
         ) : bildSrc ? (
           <div className="park-preview">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={bildSrc} alt="Uppladdad bild på parken" />
+            <div className="markera-yta visning">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bildSrc} alt="Uppladdad bild på parken" />
+              {(f.markeringar || []).map((m, i) => (
+                <span key={i} className={`markering ${kantKlass(m.x)}`} style={{ left: `${m.x / 10}%`, top: `${m.y / 10}%` }}>
+                  <span className="prick" />
+                  <span className="etikett">{m.namn}</span>
+                </span>
+              ))}
+            </div>
             <div className="park-preview-bar">
-              <span>Syns text eller marginaler runt parken? Beskär bilden så hittar domaren rätt.</span>
+              <span>
+                {f.markeringar?.length
+                  ? `${parkNamn ? parkNamn + ": " : ""}${f.markeringar.length} hinder utmärkta. Domaren använder dem och numren hamnar exakt där.`
+                  : "Märk ut hindren, så vet domaren exakt var de ligger och slipper gissa."}
+              </span>
               <div className="park-preview-actions">
-                <button type="button" className="btn-small gold" onClick={() => setBeskar(true)}>
-                  Beskär
+                <button type="button" className="btn-small gold" onClick={() => setMarkera(true)}>
+                  {f.markeringar?.length ? "Ändra hinder" : "Märk ut hinder"}
                 </button>
+                {!f.markeringar?.length && (
+                  <button type="button" className="btn-small" onClick={() => setBeskar(true)}>
+                    Beskär
+                  </button>
+                )}
                 <button type="button" className="btn-small" onClick={() => filRef.current?.click()}>
                   Byt bild
                 </button>
                 <button
                   type="button"
                   className="btn-small danger"
-                  onClick={() => setF((prev) => ({ ...prev, bild: null }))}
+                  onClick={() => {
+                    setF((prev) => ({ ...prev, bild: null, markeringar: [] }));
+                    setParkNamn("");
+                    setParkInfo("");
+                  }}
                 >
                   Ta bort
                 </button>
@@ -433,6 +526,7 @@ export default function Page() {
             <span>Klicka, dra hit en bild eller klistra in med Ctrl+V. Gärna en bild med hindren utmärkta.</span>
           </button>
         )}
+        {parkInfo && !markera && <p className="park-info">{parkInfo}</p>}
         <div className="field" style={{ marginTop: 14 }}>
           <label htmlFor="park">Beskrivning av parken (valfritt)</label>
           <textarea
@@ -514,13 +608,13 @@ export default function Page() {
         )}
 
         <div className="actions" style={{ marginTop: 18 }}>
-          <button className="btn btn-primary" disabled={busy || bildLaddar || beskar}>
+          <button className="btn btn-primary" disabled={busy || bildLaddar || beskar || markera}>
             {busy ? "Domarna arbetar…" : foresla ? "Föreslå en run" : "Bedöm runnen"}
           </button>
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={() => setF((prev) => ({ ...EXEMPEL, bild: prev.bild, lage: prev.lage, versioner: prev.versioner }))}
+            onClick={() => setF((prev) => ({ ...EXEMPEL, bild: prev.bild, lage: prev.lage, versioner: prev.versioner, markeringar: prev.markeringar }))}
           >
             Fyll i exempel
           </button>

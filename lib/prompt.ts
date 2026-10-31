@@ -70,12 +70,24 @@ Parken:
 ${i.bild ? "En bild på parken är bifogad. Läs av hindren i bilden." : ""}
 ${i.park ? `Beskrivning: ${i.park}` : i.bild ? "" : "okänd – anta en typisk OS-park"}`;
 
+  const markeringar = i.markeringar || [];
+  const hinderAvTranaren = markeringar.length
+    ? `
+
+PARKENS HINDER ÄR UTMÄRKTA AV TRÄNAREN
+Tränaren har själv pekat ut och namngett hindren. Namnen står utskrivna i bilden (vit text på svart) med en gul prick vid hindret. Lita på dem i stället för att gissa.
+Hinder och ungefärligt läge i bilden (x och y 0–1000, x från vänster, y uppifrån):
+${markeringar.map((m) => `- ${m.namn} (x ${Math.round(m.x)}, y ${Math.round(m.y)})`).join("\n")}
+- Fältet "sektion" MÅSTE vara exakt ett av namnen ovan.
+- "hinderIParken" ska vara exakt dessa namn, utan "box_2d".
+- Använd lägena för att bygga en logisk väg: hinder som ligger nära varandra kan åkas i följd.`
+    : "";
   const valda = valdaVersioner(i);
   const lista = valda.map((v) => `"${v}"`).join(", ");
   const antal = valda.length === 1 ? `Bygg ENDAST en version: ${lista}.` : `Bygg dessa versioner: ${lista}.`;
 
   if (i.lage === "foresla") {
-    return `${gemensamt}
+    return `${gemensamt}${hinderAvTranaren}
 
 UPPDRAG: FÖRESLÅ EN RUN
 Åkaren har ingen färdig run. Bygg den bästa möjliga runnen från grunden utifrån åkarens tricks och parken. Fyll ut med frontside- och backside-grinds där det behövs.
@@ -86,7 +98,7 @@ Så här fyller du fälten:
 - "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.`;
   }
 
-  return `${gemensamt}
+  return `${gemensamt}${hinderAvTranaren}
 
 UPPDRAG: BEDÖM ÅKARENS RUN
 Den tänkta runnen (i ordning):

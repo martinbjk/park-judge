@@ -72,6 +72,17 @@ export async function POST(req: Request) {
   const valda = valdaVersioner(input);
   input.versioner = valda;
 
+  // Hinder som tränaren märkt ut: tvätta och begränsa
+  const markeringar = (Array.isArray(input.markeringar) ? input.markeringar : [])
+    .filter((m) => m && typeof m.namn === "string" && m.namn.trim() && Number.isFinite(m.x) && Number.isFinite(m.y))
+    .slice(0, 40)
+    .map((m) => ({
+      namn: m.namn.trim().slice(0, 40),
+      x: Math.max(0, Math.min(1000, Number(m.x))),
+      y: Math.max(0, Math.min(1000, Number(m.y))),
+    }));
+  input.markeringar = markeringar;
+
   if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
     return fel("Skriv in runnen du vill få bedömd, eller välj Föreslå en run.", 400);
   }
@@ -194,6 +205,14 @@ export async function POST(req: Request) {
         p.versioner = valda
           .map((typ) => p.versioner.find((v) => v && v.typ === typ))
           .filter((v): v is JudgeResult["versioner"][number] => !!v);
+      }
+      // Med utmärkta hinder: använd tränarens exakta lägen i stället för Geminis gissning.
+      // En liten ruta runt punkten gör att numren hamnar precis där tränaren pekade.
+      if (markeringar.length && parsed && typeof parsed === "object") {
+        (parsed as JudgeResult).hinderIParken = markeringar.map((m) => ({
+          namn: m.namn,
+          box_2d: [m.y - 12, m.x - 12, m.y + 12, m.x + 12],
+        }));
       }
       if (!arGiltigtSvar(parsed)) {
         // Modellen finns och svarar. Att prova fler modeller slösar bara gratiskvot.
