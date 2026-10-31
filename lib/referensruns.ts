@@ -23,8 +23,7 @@ export const REFERENSRUNS: Referensrun[] = [
       "Kickflip över volcano",
       "Indy grab",
       "Alley-oop frontside air",
-      "Nosegrind",
-      "Wall ride",
+      "Nosegrind på vertikal transition",
       "Kickflip lien air",
       "Frontside slide and roll",
       "Frontside ollie till nosegrind",
@@ -33,7 +32,7 @@ export const REFERENSRUNS: Referensrun[] = [
       "Hög kickflip to fakie",
     ],
     kommentar:
-      "14 tricks på 45 sekunder utan stopp. Svårighet: två McTwist-varianter, flera kickflip-varianter och frontside 360 air. Variation: airs, flips, alley-oops, grinds, slide, wall ride och fakie-landning, åt både frontside- och backside-hållet. Användning av parken: volcano, platform, vert, vägg och transfer mellan ramper. Upprepade grundtrick görs i ny variant (annan grab, annat hinder) och räknas därför inte som repetition.",
+      "13 tricks på 45 sekunder utan stopp. Svårighet: två McTwist-varianter, flera kickflip-varianter och frontside 360 air. Variation: airs, flips, alley-oops, grinds, slide och fakie-landning, åt både frontside- och backside-hållet. Användning av parken: volcano, platform, vert, vertikal transition och transfer mellan ramper. Upprepade grundtrick görs i ny variant (annan grab, annat hinder) och räknas därför inte som repetition.",
   },
 ];
 
