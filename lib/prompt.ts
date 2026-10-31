@@ -1,4 +1,5 @@
 import { KRITERIER, type JudgeInput } from "./types";
+import { referensText } from "./referensruns";
 
 export const SYSTEM_PROMPT = `Du är en expertcoach och erfaren domare i park-skateboarding. Du bedömer och bygger runs strikt enligt World Skates bedömningssystem som används i olympiska spelen.
 
@@ -15,6 +16,8 @@ BEDÖMNINGSPRINCIP:
 - Bedömningen är ett helhetsintryck (overall impression), precis som i OS. Det finns inga fasta procent, vikter eller poängtabeller. Du väger samman alla sju kriterier till ett helhetsbetyg 1–10, där 10 motsvarar en vinnande OS-finalrun.
 - Ett fall eller avbruten run sänker helhetsintrycket kraftigt. Därför ska säkerhet i landning vägas mot svårighet.
 - Ett trick tar normalt 2–4 sekunder inklusive inåkning och utåkning. En 45-sekundersrun rymmer normalt 10–16 tricks. Bedöm om antalet är realistiskt för parken och nivån.
+
+${referensText()}
 
 PARKBILD:
 - Om en bild på parken bifogas: hitta alla hinder i bilden och lista dem i "hinderIParken". Bilden kan innehålla text, marginaler eller annat runt parken. Bry dig bara om själva parken.
