@@ -27,7 +27,17 @@ export type ParkBild = {
   data: string; // base64 utan "data:"-prefix
 };
 
+export const VERSIONSTYPER = ["Säker version", "Vinnarversion", "Max-risk version"] as const;
+export type VersionsTyp = (typeof VERSIONSTYPER)[number];
+
+// Den version som bedömningen gäller: Vinnarversionen om den är vald, annars den första valda
+export function huvudversion(valda: VersionsTyp[]): VersionsTyp {
+  return valda.includes("Vinnarversion") ? "Vinnarversion" : valda[0] ?? "Vinnarversion";
+}
+
 export type JudgeInput = {
+  // Vilka versioner som ska byggas. Färre versioner = snabbare svar.
+  versioner?: VersionsTyp[];
   lage: Lage;
   runLangd: number;
   niva: string;

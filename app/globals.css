@@ -383,3 +383,18 @@ td.rownr { font-weight: 700; color: var(--text); width: 36px; }
 }
 .sekunder { color: var(--gold); font-family: var(--mono); font-weight: 500; white-space: nowrap; }
 .matning { color: var(--muted); font-size: 12px; font-family: var(--mono); margin: 14px 2px 0; line-height: 1.6; opacity: 0.8; }
+
+/* ---------- Val av versioner ---------- */
+.val-versioner { display: flex; flex-wrap: wrap; gap: 8px; }
+.val-chip {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+  border-radius: 999px; padding: 8px 16px 8px 10px;
+  font-family: var(--display); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.val-chip .bock {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid var(--line); font-size: 12px; font-family: var(--body);
+}
+.val-chip.vald { color: var(--gold); border-color: var(--gold); background: var(--gold-dim); }
+.val-chip.vald .bock { background: var(--gold); color: #111; border-color: var(--gold); }

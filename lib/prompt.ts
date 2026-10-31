@@ -1,4 +1,4 @@
-import { KRITERIER, type JudgeInput } from "./types";
+import { KRITERIER, VERSIONSTYPER, huvudversion, type JudgeInput, type VersionsTyp } from "./types";
 import { referensText } from "./referensruns";
 
 export const SYSTEM_PROMPT = `Du är en expertcoach och erfaren domare i park-skateboarding. Du bedömer och bygger runs strikt enligt World Skates bedömningssystem som används i olympiska spelen.
@@ -38,7 +38,8 @@ ARBETSSÄTT:
 - Ge feedback endast utifrån de sju kriterierna.
 - Säg tydligt vad som höjer och vad som drar ner helhetsintrycket.
 - Prioritera förbättringar som ger störst effekt på domarnas helhetsintryck.
-- Bygg alltid tre versioner: "Säker version" (bara tricks åkaren landar säkert, plus fyllnadsgrinds), "Vinnarversion" (bästa balans mellan risk och poäng) och "Max-risk version" (högsta svårighet, får innehålla prioriterade tricks som inte är helt säkra). Max-risk ska ändå vara rimlig för åkarens nivå.
+- Det finns tre typer av versioner: "Säker version" (bara tricks åkaren landar säkert, plus fyllnadsgrinds), "Vinnarversion" (bästa balans mellan risk och poäng) och "Max-risk version" (högsta svårighet, får innehålla prioriterade tricks som inte är helt säkra). Max-risk ska ändå vara rimlig för åkarens nivå.
+- Bygg exakt de versioner som uppdraget anger, inga andra.
 - Varje version ska fylla run-längden med realistiska tidsstämplar i formatet "0:00–0:04".
 - Fältet "sektion" ska vara hindrets namn i parken.
 - Koppla varje rad till de kriterier den främst påverkar.
@@ -69,16 +70,20 @@ Parken:
 ${i.bild ? "En bild på parken är bifogad. Läs av hindren i bilden." : ""}
 ${i.park ? `Beskrivning: ${i.park}` : i.bild ? "" : "okänd – anta en typisk OS-park"}`;
 
+  const valda = valdaVersioner(i);
+  const lista = valda.map((v) => `"${v}"`).join(", ");
+  const antal = valda.length === 1 ? `Bygg ENDAST en version: ${lista}.` : `Bygg dessa versioner: ${lista}.`;
+
   if (i.lage === "foresla") {
     return `${gemensamt}
 
 UPPDRAG: FÖRESLÅ EN RUN
 Åkaren har ingen färdig run. Bygg den bästa möjliga runnen från grunden utifrån åkarens tricks och parken. Fyll ut med frontside- och backside-grinds där det behövs.
+${antal}
 
 Så här fyller du fälten:
-- "analys", "betyg", "sammanfattning", "kriterier", "hojer" och "sanker" gäller din Vinnarversion.
-- "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.
-- Leverera alla tre versionerna.`;
+- "analys", "betyg", "sammanfattning", "kriterier", "hojer" och "sanker" gäller din "${huvudversion(valda)}".
+- "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.`;
   }
 
   return `${gemensamt}
@@ -87,7 +92,36 @@ UPPDRAG: BEDÖM ÅKARENS RUN
 Den tänkta runnen (i ordning):
 ${i.run}
 
-Bedöm runnen och leverera alla tre förbättrade versioner.`;
+Bedöm runnen. Bygg sedan förbättrade versioner av den. ${antal}`;
+}
+
+// Valda versioner i fast ordning. Saknas valet byggs alla tre (som tidigare).
+export function valdaVersioner(i: JudgeInput): VersionsTyp[] {
+  const giltiga = (i.versioner || []).filter((v): v is VersionsTyp => VERSIONSTYPER.includes(v));
+  return giltiga.length ? VERSIONSTYPER.filter((v) => giltiga.includes(v)) : [...VERSIONSTYPER];
+}
+
+// Schemat begränsas till de valda versionerna, så att Gemini inte skriver fler än nödvändigt
+export function schemaFor(valda: VersionsTyp[]) {
+  const versioner = RESPONSE_SCHEMA.properties.versioner;
+  return {
+    ...RESPONSE_SCHEMA,
+    properties: {
+      ...RESPONSE_SCHEMA.properties,
+      versioner: {
+        ...versioner,
+        minItems: valda.length,
+        maxItems: valda.length,
+        items: {
+          ...versioner.items,
+          properties: {
+            ...versioner.items.properties,
+            typ: { type: "STRING", enum: [...valda] },
+          },
+        },
+      },
+    },
+  };
 }
 
 // JSON-schema som tvingar Gemini att svara strukturerat

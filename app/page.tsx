@@ -10,6 +10,9 @@ import {
   type JudgeResult,
   type Lage,
   type ParkBild,
+  VERSIONSTYPER,
+  huvudversion,
+  type VersionsTyp,
 } from "@/lib/types";
 import RunKarta from "./RunKarta";
 
@@ -23,6 +26,7 @@ const EXEMPEL: JudgeInput = {
   park: "Platform quarter, bank, spine, volcano, bridge, två extensions, hip, gap hip, deep end, platform deck",
   run: "",
   bild: null,
+  versioner: ["Vinnarversion"],
 };
 
 const TOM: JudgeInput = {
@@ -34,6 +38,7 @@ const TOM: JudgeInput = {
   park: "",
   run: "",
   bild: null,
+  versioner: ["Vinnarversion"],
 };
 
 const MAX_SIDA = 1600; // pixlar på längsta sidan efter komprimering
@@ -194,7 +199,8 @@ export default function Page() {
       setRes(data);
       setResLage(f.lage);
       setResBild(f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null);
-      setTab(1);
+      const typer = (data as JudgeResult).versioner.map((v) => v.typ);
+      setTab(Math.max(0, typer.indexOf(huvudversion(typer))));
       setTimeout(() => document.getElementById("resultat")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Något gick fel.");
@@ -211,6 +217,9 @@ export default function Page() {
 
   const bildSrc = f.bild ? `data:${f.bild.mimeType};base64,${f.bild.data}` : null;
   const foresla = f.lage === "foresla";
+  const valda: VersionsTyp[] = VERSIONSTYPER.filter((v) =>
+    (f.versioner?.length ? f.versioner : ["Vinnarversion"]).includes(v)
+  );
 
   const versionerPanel = res && (
     <section className="panel">
@@ -458,6 +467,38 @@ export default function Page() {
           </button>
         </div>
 
+        <div className="field" style={{ marginTop: 16, marginBottom: 0 }}>
+          <label>Vilka versioner vill du ha?</label>
+          <div className="val-versioner" role="group" aria-label="Versioner">
+            {VERSIONSTYPER.map((typ) => {
+              const vald = valda.includes(typ);
+              return (
+                <button
+                  key={typ}
+                  type="button"
+                  aria-pressed={vald}
+                  className={`val-chip ${vald ? "vald" : ""}`}
+                  onClick={() =>
+                    setF((prev) => {
+                      const nu = prev.versioner?.length ? prev.versioner : (["Vinnarversion"] as VersionsTyp[]);
+                      const ny = nu.includes(typ) ? nu.filter((v) => v !== typ) : [...nu, typ];
+                      return { ...prev, versioner: ny.length ? ny : nu }; // minst en måste vara vald
+                    })
+                  }
+                >
+                  <span className="bock">{vald ? "✓" : ""}</span>
+                  {typ === "Säker version" ? "Säker" : typ === "Vinnarversion" ? "Vinnare" : "Max-risk"}
+                </button>
+              );
+            })}
+          </div>
+          <span className="hint">
+            {valda.length === 1
+              ? "En version går snabbast."
+              : "Varje extra version gör att det tar längre tid."}
+          </span>
+        </div>
+
         {!foresla && (
           <div className="field" style={{ marginTop: 14 }}>
             <label htmlFor="run">Din run</label>
@@ -479,7 +520,7 @@ export default function Page() {
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={() => setF((prev) => ({ ...EXEMPEL, bild: prev.bild, lage: prev.lage }))}
+            onClick={() => setF((prev) => ({ ...EXEMPEL, bild: prev.bild, lage: prev.lage, versioner: prev.versioner }))}
           >
             Fyll i exempel
           </button>
@@ -520,7 +561,9 @@ export default function Page() {
         <div id="resultat" style={{ marginTop: 20 }}>
           <section className="panel">
             <h3 className="panel-title">
-              {resLage === "foresla" ? "Föreslagen run · Vinnarversion" : "Domarnas helhetsintryck"}
+              {resLage === "foresla"
+                ? `Föreslagen run · ${huvudversion(res.versioner.map((v) => v.typ))}`
+                : "Domarnas helhetsintryck"}
             </h3>
             <div className="scoreboard">
               <Gauge value={res.betyg} />

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { SYSTEM_PROMPT, buildUserPrompt, RESPONSE_SCHEMA } from "@/lib/prompt";
-import type { JudgeInput, Matning } from "@/lib/types";
+import { SYSTEM_PROMPT, buildUserPrompt, schemaFor, valdaVersioner } from "@/lib/prompt";
+import type { JudgeInput, JudgeResult, Matning } from "@/lib/types";
 import { DEMO_RESULT } from "@/lib/demo";
 
 export const runtime = "nodejs";
@@ -69,6 +69,8 @@ export async function POST(req: Request) {
 
   const lage = input.lage === "bedom" ? "bedom" : "foresla";
   input.lage = lage;
+  const valda = valdaVersioner(input);
+  input.versioner = valda;
 
   if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
     return fel("Skriv in runnen du vill få bedömd, eller välj Föreslå en run.", 400);
@@ -103,7 +105,8 @@ export async function POST(req: Request) {
       tankeTokens: 800,
       forsok: 1,
     };
-    return NextResponse.json({ ...DEMO_RESULT, matning });
+    const versioner = DEMO_RESULT.versioner.filter((v) => valda.includes(v.typ));
+    return NextResponse.json({ ...DEMO_RESULT, versioner, matning });
   }
 
   const parts: object[] = [];
@@ -130,7 +133,7 @@ export async function POST(req: Request) {
       generationConfig: {
         temperature: 0.4,
         responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
+        responseSchema: schemaFor(valda),
         ...(tanke ? { thinkingConfig: tanke } : {}),
       },
     });
@@ -184,6 +187,13 @@ export async function POST(req: Request) {
         parsed = JSON.parse(text);
       } catch {
         parsed = null;
+      }
+      // Behåll bara valda versioner, i fast ordning (Säker, Vinnare, Max-risk)
+      if (parsed && typeof parsed === "object" && Array.isArray((parsed as JudgeResult).versioner)) {
+        const p = parsed as JudgeResult;
+        p.versioner = valda
+          .map((typ) => p.versioner.find((v) => v && v.typ === typ))
+          .filter((v): v is JudgeResult["versioner"][number] => !!v);
       }
       if (!arGiltigtSvar(parsed)) {
         // Modellen finns och svarar. Att prova fler modeller slösar bara gratiskvot.
