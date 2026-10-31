@@ -34,6 +34,30 @@ export const REFERENSRUNS: Referensrun[] = [
     kommentar:
       "13 tricks på 45 sekunder utan stopp. Svårighet: två McTwist-varianter, flera kickflip-varianter och frontside 360 air. Variation: airs, flips, alley-oops, grinds, slide och fakie-landning, åt både frontside- och backside-hållet. Användning av parken: volcano, platform, vert, vertikal transition och transfer mellan ramper. Upprepade grundtrick görs i ny variant (annan grab, annat hinder) och räknas därför inte som repetition.",
   },
+  {
+    titel: "VM-guld herrar park, São Paulo 8 mars 2026 – Egoitz Bijueska (Spanien, 15 år), sista åket i finalen",
+    poang: "95,83 av 100 (bästa av tre åk räknas)",
+    betygPaVarSkala: 9.6,
+    kalla: "Poäng: urbanworldseries.com. Tricklistan är nedskriven av en användare från videon.",
+    tricks: [
+      "Melon 540",
+      "Backside smith grind",
+      "Backside smith grind upp på extension",
+      "Tail grab 540",
+      "Backside tailslide i hörnet",
+      "Frontside nosegrind på extension",
+      "Frontside smith grind",
+      "Kickflip body varial över hörnet",
+      "Feeble grind på vert",
+      "Crooked grind på rail på platform deck",
+      "Frontside blunt",
+      "Frontside slide and roll",
+      "450 to fakie",
+      "Switch McTwist (540)",
+    ],
+    kommentar:
+      "14 tricks med mycket hög svårighet i både rotationer och grinds. Svårighet: två 540:or med olika grab, 450 to fakie och en switch McTwist som avslutning. Variation: airs, flips, lip tricks, slides och många olika grinds (smith, nosegrind, feeble, crooked, blunt), åt både frontside- och backside-hållet och i switch. Användning av parken: extensions, hörn, vert, rail och platform deck. Backside smith grind görs två gånger men på olika hinder (andra gången upp på extension), vilket visar kontroll snarare än repetition. Avslutningen med switch McTwist håller intensiteten ända till slutet.",
+  },
 ];
 
 // Text som läggs in i domarprompten
