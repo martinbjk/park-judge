@@ -53,7 +53,7 @@ ARBETSSÄTT:
 - Om bilden är otydlig eller du är osäker på ett hinder, säg det i "tankesatt".
 - Betyget är en uppskattning från en AI, inte en officiell domarbedömning.
 
-Svara alltid på svenska, i exakt det JSON-format som efterfrågas.`;
+Svara på svenska om inte uppdraget anger ett annat språk, och alltid i exakt det JSON-format som efterfrågas.`;
 
 export function buildUserPrompt(i: JudgeInput): string {
   const gemensamt = `ÅKARENS UPPGIFTER
@@ -95,7 +95,7 @@ ${antal}
 
 Så här fyller du fälten:
 - "analys", "betyg", "sammanfattning", "kriterier", "hojer" och "sanker" gäller din "${huvudversion(valda)}".
-- "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.`;
+- "atgarder" är vad åkaren ska träna på för att höja runnen ytterligare.${sprakInstruktion(i)}`;
   }
 
   return `${gemensamt}${hinderAvTranaren}
@@ -104,7 +104,18 @@ UPPDRAG: BEDÖM ÅKARENS RUN
 Den tänkta runnen (i ordning):
 ${i.run}
 
-Bedöm runnen. Bygg sedan förbättrade versioner av den. ${antal}`;
+Bedöm runnen. Bygg sedan förbättrade versioner av den. ${antal}${sprakInstruktion(i)}`;
+}
+
+// Engelska: all fritext på engelska, men JSON-nycklar, fasta värden och markeringar oförändrade
+function sprakInstruktion(i: JudgeInput): string {
+  if (i.sprak !== "en") return "";
+  return `
+
+LANGUAGE: ENGLISH
+Write ALL free text in English: "sammanfattning", "tidskommentar", every "kommentar", "hojer", "sanker", "atgarder", "beskrivning", "motivering", "tankesatt" and trick names.
+Keep these exactly as specified, in Swedish: all JSON keys, the "typ" values ("Säker version", "Vinnarversion", "Max-risk version"), the "omdome" values ("Stark", "Godkänd", "Svag") and the criterion names.
+Keep the trick markers "(fyllnad)" and "(nytt)" exactly as written. Keep obstacle names exactly as given by the coach or as written in the picture.`;
 }
 
 // Valda versioner i fast ordning. Saknas valet byggs alla tre (som tidigare).

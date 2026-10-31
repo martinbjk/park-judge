@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { ParkBild, ParkMarkering } from "@/lib/types";
 import { kantKlass } from "@/lib/parker";
+import type { Texter } from "@/lib/i18n";
 
 // Vanliga hindernamn som snabbval. Man kan alltid skriva egna.
 const FORSLAG = [
@@ -29,12 +30,14 @@ const kl = (v: number) => Math.max(0, Math.min(1000, v));
 // Låter tränaren peka ut parkens hinder på bilden och ge dem namn
 export default function MarkeraHinder({
   bild,
+  t,
   startMarkeringar,
   startNamn,
   onKlar,
   onAvbryt,
 }: {
   bild: ParkBild;
+  t: Texter;
   startMarkeringar: ParkMarkering[];
   startNamn: string;
   onKlar: (markeringar: ParkMarkering[], parkNamn: string) => void;
@@ -84,20 +87,19 @@ export default function MarkeraHinder({
   return (
     <div className="markera">
       <p className="beskar-info">
-        <b>1.</b> Tryck på bilden där ett hinder finns. <b>2.</b> Skriv namnet eller välj ett förslag.{" "}
-        <b>3.</b> Upprepa för alla hinder. Tryck på ett namn för att ta bort det.
+        <b>1.</b> {t.markeraSteg1} <b>2.</b> {t.markeraSteg2} <b>3.</b> {t.markeraSteg3}
       </p>
 
       <div className="markera-yta" ref={ytaRef} onClick={tryck}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="Peka ut hindren i parken" draggable={false} />
+        <img src={src} alt={t.markeraAlt} draggable={false} />
         {markeringar.map((m, i) => (
           <button
             key={i}
             type="button"
             className={`markering ${kantKlass(m.x)}`}
             style={{ left: `${m.x / 10}%`, top: `${m.y / 10}%` }}
-            title="Tryck för att ta bort"
+            title={t.tryckForAttTaBort}
             onClick={(e) => {
               e.stopPropagation();
               setMarkeringar((prev) => prev.filter((_, j) => j !== i));
@@ -120,7 +122,7 @@ export default function MarkeraHinder({
                 ref={inputRef}
                 value={namn}
                 maxLength={40}
-                placeholder="Vad är det här? T.ex. Volcano"
+                placeholder={t.vadArDet}
                 onChange={(e) => setNamn(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -130,10 +132,10 @@ export default function MarkeraHinder({
                 }}
               />
               <button type="button" className="btn-small gold" onClick={() => laggTill()} disabled={!namn.trim()}>
-                Lägg till
+                {t.laggTill}
               </button>
               <button type="button" className="btn-small" onClick={() => setPunkt(null)}>
-                Avbryt
+                {t.avbryt}
               </button>
             </div>
             <div className="forslag">
@@ -146,9 +148,7 @@ export default function MarkeraHinder({
           </>
         ) : (
           <p className="hint" style={{ margin: 0 }}>
-            {markeringar.length === 0
-              ? "Inga hinder utmärkta än. Tryck på bilden för att börja."
-              : `${markeringar.length} hinder utmärkta. Tryck på bilden för att lägga till fler.`}
+            {markeringar.length === 0 ? t.ingaHinderAn : t.hinderUtmarktaFler(markeringar.length)}
           </p>
         )}
 
@@ -156,14 +156,14 @@ export default function MarkeraHinder({
           <input
             value={parkNamn}
             maxLength={60}
-            placeholder="Parkens namn, t.ex. Melker-parken"
+            placeholder={t.parkNamnPlaceholder}
             onChange={(e) => setParkNamn(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
           />
         </div>
         <div className="park-preview-actions" style={{ marginTop: 10, justifyContent: "flex-end" }}>
           <button type="button" className="btn-small" onClick={onAvbryt}>
-            Avbryt
+            {t.avbryt}
           </button>
           <button
             type="button"
@@ -171,7 +171,7 @@ export default function MarkeraHinder({
             disabled={markeringar.length === 0}
             onClick={() => onKlar(unikaNamn(markeringar), parkNamn.trim())}
           >
-            Klar{parkNamn.trim() ? " och spara parken" : ""}
+            {parkNamn.trim() ? t.klarOchSpara : t.klar}
           </button>
         </div>
       </div>

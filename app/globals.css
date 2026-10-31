@@ -455,3 +455,14 @@ td.rownr { font-weight: 700; color: var(--text); width: 36px; }
 }
 .markering.vanster .etikett { left: -6px; }
 .markering.hoger .etikett { right: -6px; }
+
+/* ---------- Språkval ---------- */
+.top-hoger { display: flex; align-items: center; gap: 16px; }
+.sprakval { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.sprakval button {
+  background: transparent; border: 0; color: var(--muted); cursor: pointer;
+  font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: 0.08em;
+  padding: 6px 12px;
+}
+.sprakval button.vald { background: var(--gold); color: #111; }
+.sprakval button:not(.vald):hover { color: var(--text); }

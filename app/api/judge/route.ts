@@ -45,27 +45,69 @@ function forMangaForfragningar(ip: string): boolean {
   return false;
 }
 
+// Felmeddelanden på båda språken
+const MEDDELANDEN = {
+  sv: {
+    nyckelSaknas: "GEMINI_API_KEY saknas. Lägg in den i Vercel under Settings → Environment Variables.",
+    granser: "Du har nått gränsen för bedömningar den här timmen. Försök igen senare.",
+    ogiltig: "Ogiltig förfrågan. Bilden kan vara för stor, prova en mindre.",
+    skrivRun: "Skriv in runnen du vill få bedömd, eller välj Föreslå en run.",
+    skrivTricks: "Skriv in vilka tricks åkaren vill göra, så kan en run föreslås.",
+    bildTyp: "Bilden måste vara JPG, PNG eller WebP.",
+    bildStor: "Bilden är för stor. Prova en mindre bild.",
+    textLang: "Texten är för lång. Korta ner beskrivningen.",
+    kvot: "Geminis gratiskvot är slut för stunden. Vänta en minut och försök igen.",
+    geminiFel: (status: number, modeller: string) => `Gemini svarade med fel (${status}). Provade: ${modeller}`,
+    tid: "Domaren hann inte bli klar i tid. Försök igen. Hjälper det inte, prova med färre tricks eller en mindre bild.",
+    serverfel: "Gemini har tillfälliga problem just nu. Vänta en stund och försök igen.",
+    ofullstandigt: "Domaren gav ett ofullständigt svar. Försök igen.",
+    ogiltigNyckel: "Gemini-nyckeln är ogiltig. Kontrollera GEMINI_API_KEY i Vercel.",
+    nasInte: "Kunde inte nå Gemini. Försök igen.",
+  },
+  en: {
+    nyckelSaknas: "GEMINI_API_KEY is missing. Add it in Vercel under Settings → Environment Variables.",
+    granser: "You have reached the limit of judgements for this hour. Please try again later.",
+    ogiltig: "Invalid request. The picture may be too large, try a smaller one.",
+    skrivRun: "Enter the run you want judged, or choose Suggest a run.",
+    skrivTricks: "Enter the tricks the skater wants to do, so a run can be suggested.",
+    bildTyp: "The picture must be JPG, PNG or WebP.",
+    bildStor: "The picture is too large. Try a smaller one.",
+    textLang: "The text is too long. Shorten the description.",
+    kvot: "Gemini's free quota is used up for the moment. Wait a minute and try again.",
+    geminiFel: (status: number, modeller: string) => `Gemini returned an error (${status}). Tried: ${modeller}`,
+    tid: "The judge did not finish in time. Try again. If that does not help, try fewer tricks or a smaller picture.",
+    serverfel: "Gemini is having temporary problems. Wait a moment and try again.",
+    ofullstandigt: "The judge gave an incomplete answer. Please try again.",
+    ogiltigNyckel: "The Gemini key is invalid. Check GEMINI_API_KEY in Vercel.",
+    nasInte: "Could not reach Gemini. Please try again.",
+  },
+};
+
 function fel(meddelande: string, status: number) {
   return NextResponse.json({ error: meddelande }, { status });
 }
 
 export async function POST(req: Request) {
+  // Språk: från webbläsarens inställning tills förfrågan är läst, sedan det användaren valt
+  let M = /^sv/i.test(req.headers.get("accept-language") || "sv") ? MEDDELANDEN.sv : MEDDELANDEN.en;
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
-    return fel("GEMINI_API_KEY saknas. Lägg in den i Vercel under Settings → Environment Variables.", 500);
+    return fel(M.nyckelSaknas, 500);
   }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "okänd";
   if (forMangaForfragningar(ip)) {
-    return fel("Du har nått gränsen för bedömningar den här timmen. Försök igen senare.", 429);
+    return fel(M.granser, 429);
   }
 
   let input: JudgeInput;
   try {
     input = await req.json();
   } catch {
-    return fel("Ogiltig förfrågan. Bilden kan vara för stor, prova en mindre.", 400);
+    return fel(M.ogiltig, 400);
   }
+  if (input.sprak === "en" || input.sprak === "sv") M = MEDDELANDEN[input.sprak];
+  else input.sprak = "sv";
 
   const lage = input.lage === "bedom" ? "bedom" : "foresla";
   input.lage = lage;
@@ -84,25 +126,25 @@ export async function POST(req: Request) {
   input.markeringar = markeringar;
 
   if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
-    return fel("Skriv in runnen du vill få bedömd, eller välj Föreslå en run.", 400);
+    return fel(M.skrivRun, 400);
   }
   if (lage === "foresla" && (!input.sakraTricks || input.sakraTricks.trim().length < 3)) {
-    return fel("Skriv in vilka tricks åkaren vill göra, så kan en run föreslås.", 400);
+    return fel(M.skrivTricks, 400);
   }
 
   const bild = input.bild || null;
   if (bild) {
     if (!TILLATNA_BILDTYPER.includes(bild.mimeType) || typeof bild.data !== "string") {
-      return fel("Bilden måste vara JPG, PNG eller WebP.", 400);
+      return fel(M.bildTyp, 400);
     }
     if (bild.data.length > MAX_BILD_BASE64) {
-      return fel("Bilden är för stor. Prova en mindre bild.", 400);
+      return fel(M.bildStor, 400);
     }
   }
 
   const textdel = { ...input, bild: undefined };
   if (JSON.stringify(textdel).length > 8000) {
-    return fel("Texten är för lång. Korta ner beskrivningen.", 400);
+    return fel(M.textLang, 400);
   }
 
   if (key === "demo") {
@@ -264,24 +306,21 @@ export async function POST(req: Request) {
     }
 
     if (senasteStatus === 429) {
-      return fel("Geminis gratiskvot är slut för stunden. Vänta en minut och försök igen.", 429);
+      return fel(M.kvot, 429);
     }
-    return fel(`Gemini svarade med fel (${senasteStatus}). Provade: ${[...provade].join(", ")}`, 502);
+    return fel(M.geminiFel(senasteStatus, [...provade].join(", ")), 502);
   } catch (e) {
     if (e instanceof Error && e.message === "TIDEN_SLUT") {
-      return fel(
-        "Domaren hann inte bli klar i tid. Försök igen. Hjälper det inte, prova med färre tricks eller en mindre bild.",
-        504
-      );
+      return fel(M.tid, 504);
     }
     if (e instanceof Error && e.message === "OFULLSTANDIGT") {
-      return fel("Domaren gav ett ofullständigt svar. Försök igen.", 502);
+      return fel(M.ofullstandigt, 502);
     }
     if (e instanceof Error && e.message === "NYCKEL") {
-      return fel("Gemini-nyckeln är ogiltig. Kontrollera GEMINI_API_KEY i Vercel.", 500);
+      return fel(M.ogiltigNyckel, 500);
     }
     console.error(e);
-    return fel("Kunde inte nå Gemini. Försök igen.", 502);
+    return fel(M.nasInte, 502);
   }
 }
 

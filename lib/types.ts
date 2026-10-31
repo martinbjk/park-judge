@@ -39,6 +39,8 @@ export function huvudversion(valda: VersionsTyp[]): VersionsTyp {
 export type ParkMarkering = { namn: string; x: number; y: number };
 
 export type JudgeInput = {
+  // Språk för domarens svar och felmeddelanden
+  sprak?: "sv" | "en";
   // Hinder som tränaren märkt ut. Finns de behöver Gemini inte gissa var hindren ligger.
   markeringar?: ParkMarkering[];
   // Vilka versioner som ska byggas. Färre versioner = snabbare svar.

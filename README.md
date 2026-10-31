@@ -31,6 +31,8 @@ Appen ger:
 - **Säker version**, **Vinnarversion** och **Max-risk version** i tabeller med tid, sektion, trick och motivering
 - Utskrift / spara som PDF
 
+Språk: svenska och engelska (knapp SV/EN uppe till höger). Domaren svarar på valt språk. Alla texter finns i `lib/i18n.ts`.
+
 AI-motor: Google Gemini via gratisnivån i Google AI Studio.
 
 > Betyget är en AI-uppskattning, inte en officiell domarbedömning.

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Hinder, RunVersion } from "@/lib/types";
+import type { Texter } from "@/lib/i18n";
 import { hittaHinder, mittpunkt } from "@/lib/hinder";
 
 type Punkt = { x: number; y: number };
@@ -57,10 +58,12 @@ export default function RunKarta({
   version,
   bildSrc,
   hinder,
+  t,
 }: {
   version: RunVersion;
   bildSrc: string | null;
   hinder: Hinder[];
+  t: Texter;
 }) {
   const [flyttade, setFlyttade] = useState<Record<number, Punkt>>({});
   const [aktiv, setAktiv] = useState<number | null>(null);
@@ -131,10 +134,10 @@ export default function RunKarta({
       // Tricklistan
       ctx.fillStyle = "#111111";
       ctx.font = "bold 34px Arial, sans-serif";
-      ctx.fillText(version.typ, pad, pad + 34);
+      ctx.fillText(t.versioner[version.typ] ?? version.typ, pad, pad + 34);
       ctx.font = "18px Arial, sans-serif";
       ctx.fillStyle = "#555555";
-      ctx.fillText(`Uppskattat ${version.uppskattatBetyg.toFixed(1)} / 10 · Park Judge`, pad, pad + 64);
+      ctx.fillText(t.bildUndertext(version.uppskattatBetyg.toFixed(1)), pad, pad + 64);
       ctx.font = "22px Arial, sans-serif";
       ctx.fillStyle = "#111111";
       version.rader.forEach((r, i) => {
@@ -173,7 +176,7 @@ export default function RunKarta({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `park-judge-${version.typ.toLowerCase().replace(/[^a-zåäö]+/g, "-")}.png`;
+      a.download = `park-judge-${(t.versioner[version.typ] ?? version.typ).toLowerCase().replace(/[^a-z0-9åäö]+/g, "-")}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } finally {
@@ -207,7 +210,7 @@ export default function RunKarta({
         <div className="karta-bild">
           <div className="karta-yta" ref={ytaRef}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={bildSrc} alt="Parken med numrerade tricks" draggable={false} />
+            <img src={bildSrc} alt={t.kartaAlt} draggable={false} />
             {version.rader.map((r, i) => {
               const p = punkt(i);
               return (
@@ -218,7 +221,7 @@ export default function RunKarta({
                     starter[i].gissad && !flyttade[i] ? "gissad" : ""
                   }`}
                   style={{ left: `${p.x / 10}%`, top: `${p.y / 10}%` }}
-                  title={`${i + 1}. ${rensaNamn(r.trick)} – dra för att flytta`}
+                  title={`${i + 1}. ${rensaNamn(r.trick)} – ${t.draForAttFlytta}`}
                   aria-label={`${i + 1}. ${rensaNamn(r.trick)}`}
                   onMouseEnter={() => setAktiv(i)}
                   onMouseLeave={() => setAktiv(null)}
@@ -239,17 +242,17 @@ export default function RunKarta({
           <div className="karta-verktyg no-print">
             <span>
               {nagonGissad
-                ? "Några tricks kunde inte kopplas till ett hinder och ligger uppe till vänster. Dra dem till rätt plats."
-                : "Dra en siffra om den hamnat fel."}
+                ? t.kartaGissade
+                : t.kartaDra}
             </span>
             <div className="park-preview-actions">
               {Object.keys(flyttade).length > 0 && (
                 <button type="button" className="btn-small" onClick={() => setFlyttade({})}>
-                  Återställ
+                  {t.aterstall}
                 </button>
               )}
               <button type="button" className="btn-small gold" onClick={laddaNer} disabled={laddar}>
-                {laddar ? "Skapar bild…" : "Ladda ner bild"}
+                {laddar ? t.skaparBild : t.laddaNer}
               </button>
             </div>
           </div>

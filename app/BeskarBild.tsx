@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { ParkBild } from "@/lib/types";
+import type { Texter } from "@/lib/i18n";
 
 type Ruta = { x0: number; y0: number; x1: number; y1: number }; // andelar 0–1 av bilden
 type Lage = "flytta" | "nw" | "ne" | "sw" | "se";
@@ -12,10 +13,12 @@ const kl = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 // Låter användaren beskära parkbilden med fingret eller musen
 export default function BeskarBild({
   bild,
+  t,
   onKlar,
   onAvbryt,
 }: {
   bild: ParkBild;
+  t: Texter;
   onKlar: (ny: ParkBild) => void;
   onAvbryt: () => void;
 }) {
@@ -108,11 +111,11 @@ export default function BeskarBild({
   return (
     <div className="beskar">
       <p className="beskar-info">
-        Dra i hörnen så att rutan bara omsluter parken. Ta bort text, marginaler och annat runt omkring.
+        {t.beskarInfo}
       </p>
       <div className="beskar-yta" ref={ytaRef}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="Beskär parkbilden" draggable={false} />
+        <img src={src} alt={t.beskarAlt} draggable={false} />
         <div
           className="beskar-ruta"
           style={stil}
@@ -128,13 +131,13 @@ export default function BeskarBild({
         </div>
       </div>
       <div className="park-preview-bar">
-        <span>Bilden beskärs innan den skickas till domaren.</span>
+        <span>{t.beskarFore}</span>
         <div className="park-preview-actions">
           <button type="button" className="btn-small" onClick={onAvbryt}>
-            Avbryt
+            {t.avbryt}
           </button>
           <button type="button" className="btn-small gold" onClick={anvand} disabled={sparar}>
-            {sparar ? "Beskär…" : "Använd beskärning"}
+            {sparar ? t.beskarPagar : t.anvandBeskarning}
           </button>
         </div>
       </div>
