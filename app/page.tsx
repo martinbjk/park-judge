@@ -549,9 +549,13 @@ export default function Page() {
             <div className="spinner" />
             <span>
               {foresla
-                ? "Domaren läser av parken och bygger runnen. Det tar oftast mer än en minut."
-                : "Domarpanelen analyserar runnen. Det tar oftast mer än en minut."}
+                ? "Domaren läser av parken och bygger runnen. Det tar vanligtvis 30 sekunder till 3 minuter."
+                : "Domarpanelen analyserar runnen. Det tar vanligtvis 30 sekunder till 3 minuter."}
               <b className="sekunder"> {sekunder} s</b>
+              <small className="ko-info">
+                Lång väntan beror oftast på kö hos Google. Appen använder Googles gratisnivå, och då hamnar
+                anropen sist i kön när många använder tjänsten. Själva bedömningen tar bara runt en halv minut.
+              </small>
             </span>
           </div>
         </div>
