@@ -23,7 +23,7 @@ const sv = {
   nivaer: ["Nybörjare tävling", "Regional", "Nationell", "Nationell elit", "Internationell / World Skate Tour", "OS-nivå"],
   tricksDuVillGora: "Tricks du vill göra",
   tricksPlaceholder: "t.ex. frontside air, backside 540, kickflip indy, frontside smith grind…",
-  tricksHint: "Frontside- och backside-grinds läggs till automatiskt för att fylla ut runnen.",
+  tricksHint: "Frontside- och backside-grinds läggs till automatiskt för att fylla ut runnen. Kan åkaren åka switch? Skriv \"switch\" före tricket, t.ex. switch backside air.",
   prioTricks: "Tricks att prioritera (valfritt)",
   prioPlaceholder: "Tricks du vill få med, även om de inte sitter 100 %",
 
@@ -208,7 +208,7 @@ const en: Texter = {
   nivaer: ["Beginner contest", "Regional", "National", "National elite", "International / World Skate Tour", "Olympic level"],
   tricksDuVillGora: "Tricks you want to do",
   tricksPlaceholder: "e.g. frontside air, backside 540, kickflip indy, frontside smith grind…",
-  tricksHint: "Frontside and backside grinds are added automatically to fill out the run.",
+  tricksHint: "Frontside and backside grinds are added automatically to fill out the run. Can the skater ride switch? Write \"switch\" before the trick, e.g. switch backside air.",
   prioTricks: "Tricks to prioritise (optional)",
   prioPlaceholder: "Tricks you want included, even if they are not 100 % yet",
 

@@ -46,6 +46,15 @@ ARBETSSÄTT:
 - Håll texterna korta så att svaret går snabbt: "motivering" högst 12 ord, varje kriteriums "kommentar" högst 25 ord, "beskrivning" högst 20 ord, "tankesatt" högst 80 ord.
 - I Säker version: använd bara tricks åkaren har angett, plus fyllnadsgrinds. I de andra versionerna får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
 
+SWITCH – DET ULTIMATA DRAGET JUST NU:
+- Stance: "regular" åker med vänster fot fram, "goofy" med höger fot fram. Varje åkare har en naturlig stance sedan många år, och hela kroppen är inställd på den: balans, pop, vridning och landning.
+- SWITCH = åkaren står med den ANDRA foten fram, motsatt sin naturliga stance, och rullar framåt i den riktningen. Det känns som att åka baklänges och som att skriva med fel hand. Därför kan väldigt få göra svåra tricks switch, och därför belönas det tungt.
+- FAKIE = åkaren står i sin VANLIGA stance men rullar baklänges. Det är mycket lättare än switch. Blanda aldrig ihop fakie och switch.
+- NOLLIE = popp från noskanten i den vanliga stancen. Inte heller samma sak som switch.
+- Bedömning: ett trick gjort switch ska värderas klart högre än samma trick i vanlig stance inom Difficulty. Ett relativt enkelt trick switch kan vara värt mer än ett svårare trick i vanlig stance. Flera olika switch-tricks i samma run lyfter också Variety tydligt.
+- Om åkaren har angett switch-tricks: lyft fram dem i runnen och placera dem där de syns och bygger intensitet.
+- Om åkaren inte har angett några switch-tricks: anta inte att åkaren kan åka switch. Föreslå i stället switch-varianter av åkarens säkraste tricks i "kreativaForslag", med risk minst "Medel".
+
 INNOVATION – DET SOM FÅ KAN:
 - För att vinna räcker det inte att åka bra. Det som skiljer vinnaren är ofta något nytt eller något som väldigt få kan. Domarna belönar det inom Difficulty och Variety. Just nu är switch stance ett sådant vinnande drag eftersom få behärskar det.
 - Ge alltid exakt 3 "kreativaForslag": ovanliga trick eller kombinationer som åkaren realistiskt kan lära sig utifrån tricks den redan kan.
