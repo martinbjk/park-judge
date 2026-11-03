@@ -45,6 +45,14 @@ ARBETSSÄTT:
 - Koppla varje rad till de kriterier den främst påverkar.
 - Håll texterna korta så att svaret går snabbt: "motivering" högst 12 ord, varje kriteriums "kommentar" högst 25 ord, "beskrivning" högst 20 ord, "tankesatt" högst 80 ord.
 - I Säker version: använd bara tricks åkaren har angett, plus fyllnadsgrinds. I de andra versionerna får du föreslå varianter och tydligt markera nya tricks med "(nytt)".
+
+INNOVATION – DET SOM FÅ KAN:
+- För att vinna räcker det inte att åka bra. Det som skiljer vinnaren är ofta något nytt eller något som väldigt få kan. Domarna belönar det inom Difficulty och Variety. Just nu är switch stance ett sådant vinnande drag eftersom få behärskar det.
+- Ge alltid exakt 3 "kreativaForslag": ovanliga trick eller kombinationer som åkaren realistiskt kan lära sig utifrån tricks den redan kan.
+- Tänk brett: switch- eller fakie-varianter av kända tricks, ett känt trick på ett ovanligt hinder, kombinationer (t.ex. grind in med flip ut, transfer med grab), ovanliga grabs, rotationsriktningar eller varials, och trick i en ovanlig ordning som ger överraskning.
+- Varje förslag ska vara fysiskt möjligt och rimligt för åkarens nivå. Föreslå inte något som bara världens bästa klarar till en regional åkare.
+- Ange vilka av åkarens tricks förslaget bygger på, och risk "Låg", "Medel" eller "Hög".
+- I Vinnarversion och Max-risk version: ta gärna med ett av förslagen som signaturtrick, markerat "(nytt)", om det är realistiskt.
 - Om varken bild eller parkbeskrivning finns: anta en typisk OS-park (bowl med deep end, hips, extensions, spine, quarter pipes) och säg det i tidskommentaren.
 
 ÄRLIGHET:
@@ -113,8 +121,8 @@ function sprakInstruktion(i: JudgeInput): string {
   return `
 
 LANGUAGE: ENGLISH
-Write ALL free text in English: "sammanfattning", "tidskommentar", every "kommentar", "hojer", "sanker", "atgarder", "beskrivning", "motivering", "tankesatt" and trick names.
-Keep these exactly as specified, in Swedish: all JSON keys, the "typ" values ("Säker version", "Vinnarversion", "Max-risk version"), the "omdome" values ("Stark", "Godkänd", "Svag") and the criterion names.
+Write ALL free text in English: "sammanfattning", "tidskommentar", every "kommentar", "hojer", "sanker", "atgarder", "beskrivning", "motivering", "tankesatt", "varforSallsynt", "byggerPa" and trick names.
+Keep these exactly as specified, in Swedish: all JSON keys, the "typ" values ("Säker version", "Vinnarversion", "Max-risk version"), the "omdome" values ("Stark", "Godkänd", "Svag"), the "risk" values ("Låg", "Medel", "Hög") and the criterion names.
 Keep the trick markers "(fyllnad)" and "(nytt)" exactly as written. Keep obstacle names exactly as given by the coach or as written in the picture.`;
 }
 
@@ -225,6 +233,23 @@ export const RESPONSE_SCHEMA = {
       },
     },
     tankesatt: { type: "STRING" },
+    kreativaForslag: {
+      type: "ARRAY",
+      minItems: 3,
+      maxItems: 3,
+      description: "Tre ovanliga trick eller kombinationer som få kan, byggda på åkarens tricks",
+      items: {
+        type: "OBJECT",
+        properties: {
+          trick: { type: "STRING" },
+          hinder: { type: "STRING" },
+          varforSallsynt: { type: "STRING", description: "Högst 25 ord" },
+          byggerPa: { type: "STRING", description: "Vilka av åkarens tricks det bygger på, högst 12 ord" },
+          risk: { type: "STRING", enum: ["Låg", "Medel", "Hög"] },
+        },
+        required: ["trick", "hinder", "varforSallsynt", "byggerPa", "risk"],
+      },
+    },
   },
   required: [
     "hinderIParken",
@@ -237,5 +262,6 @@ export const RESPONSE_SCHEMA = {
     "atgarder",
     "versioner",
     "tankesatt",
+    "kreativaForslag",
   ],
 };

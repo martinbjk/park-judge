@@ -124,6 +124,12 @@ const sv = {
   hinderRutorHint:
     "Rutorna visar var domaren tror att hindren ligger. Numren i runnen placeras utifrån dem. Ligger rutorna fel, prova att beskära bilden eller märk ut hindren själv.",
   sjuKriterier: "De sju kriterierna",
+  kreativaRubrik: "Kreativa förslag – det som få kan",
+  kreativaIngress:
+    "Vinnare gör ofta något som nästan ingen annan kan. Här är ovanliga trick och kombinationer byggda på det åkaren redan kan. Testa dem på träning – coachen avgör vad som är realistiskt.",
+  byggerPa: "Bygger på",
+  riskEtikett: "Risk",
+  risk: { Låg: "Låg", Medel: "Medel", Hög: "Hög" } as Record<string, string>,
   hojer: "Höjer poängen",
   sanker: "Drar ner poängen",
   tranaPa: "Träna på detta för att höja runnen",
@@ -295,6 +301,12 @@ const en: Texter = {
   hinderRutorHint:
     "The boxes show where the judge thinks the obstacles are. The numbers in the run are placed from them. If the boxes are wrong, try cropping the picture or mark the obstacles yourself.",
   sjuKriterier: "The seven criteria",
+  kreativaRubrik: "Creative ideas – what few can do",
+  kreativaIngress:
+    "Winners often do something almost nobody else can. Here are rare tricks and combinations built on what the skater can already do. Try them in practice – the coach decides what is realistic.",
+  byggerPa: "Builds on",
+  riskEtikett: "Risk",
+  risk: { Låg: "Low", Medel: "Medium", Hög: "High" },
   hojer: "Raises the score",
   sanker: "Lowers the score",
   tranaPa: "Practise this to raise the run",

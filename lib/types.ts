@@ -93,6 +93,8 @@ export type JudgeResult = {
   atgarder: string[];
   versioner: RunVersion[];
   tankesatt: string;
+  // Ovanliga trick eller kombinationer som få kan, byggda på åkarens tricks
+  kreativaForslag?: KreativtForslag[];
   matning?: Matning;
 };
 
@@ -105,4 +107,12 @@ export type Matning = {
   svarTokens: number; // själva svaret
   tankeTokens: number; // tänkande innan svaret
   forsok: number; // antal modeller som provades
+};
+
+export type KreativtForslag = {
+  trick: string;
+  hinder: string;
+  varforSallsynt: string; // varför få gör det och varför domarna belönar det
+  byggerPa: string; // vilka av åkarens tricks det bygger på
+  risk: "Låg" | "Medel" | "Hög";
 };

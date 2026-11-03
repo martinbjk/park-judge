@@ -787,6 +787,33 @@ export default function Page() {
 
           {resLage === "bedom" && versionerPanel}
 
+          {res.kreativaForslag && res.kreativaForslag.length > 0 && (
+            <section className="panel kreativa">
+              <h3 className="panel-title">{t.kreativaRubrik}</h3>
+              <p className="kreativa-ingress">{t.kreativaIngress}</p>
+              <div className="kreativa-lista">
+                {res.kreativaForslag.map((k, i) => (
+                  <div className="kreativ" key={i}>
+                    <div className="kreativ-topp">
+                      <span className="kreativ-nr">{i + 1}</span>
+                      <div className="kreativ-namn">
+                        <h4>{k.trick}</h4>
+                        <small>{k.hinder}</small>
+                      </div>
+                      <span className={`risk risk-${k.risk === "Hög" ? "hog" : k.risk === "Medel" ? "medel" : "lag"}`}>
+                        {t.riskEtikett}: {t.risk[k.risk] ?? k.risk}
+                      </span>
+                    </div>
+                    <p>{k.varforSallsynt}</p>
+                    <p className="kreativ-bygger">
+                      <b>{t.byggerPa}:</b> {k.byggerPa}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="panel">
             <details className="reason">
               <summary>{t.resonemang}</summary>

@@ -138,6 +138,29 @@ export const DEMO_RESULT: JudgeResult = {
       ],
     },
   ],
+  kreativaForslag: [
+    {
+      trick: "Switch frontside smith grind",
+      hinder: "Bank",
+      varforSallsynt: "Switch-grinds på bank ses sällan i finaler. Visar kontroll åt båda hållen och höjer Difficulty och Variety.",
+      byggerPa: "Frontside smith grind",
+      risk: "Medel",
+    },
+    {
+      trick: "Nosegrind till kickflip ut",
+      hinder: "Extension (höger)",
+      varforSallsynt: "Flip ur en grind är en ovanlig kombination som överraskar domarna och knyter ihop två tricktyper.",
+      byggerPa: "Nosegrind, kickflip indy",
+      risk: "Hög",
+    },
+    {
+      trick: "Fakie indy över spinen",
+      hinder: "Spine",
+      varforSallsynt: "Ett känt grab-trick åkt fakie på ett transferhinder ger ny variation utan stor fallrisk.",
+      byggerPa: "Kickflip indy, backside air",
+      risk: "Låg",
+    },
+  ],
   tankesatt:
     "Jag läste av tolv hinder i bilden och valde en väg medurs från platform deck, eftersom deep end då kommer direkt och ger fart till backside 540. Use of the course och Difficulty vägde tyngst. Positionerna är uppskattade från bilden och kan behöva flyttas.",
 };

@@ -466,3 +466,24 @@ td.rownr { font-weight: 700; color: var(--text); width: 36px; }
 }
 .sprakval button.vald { background: var(--gold); color: #111; }
 .sprakval button:not(.vald):hover { color: var(--text); }
+
+/* ---------- Kreativa förslag ---------- */
+.kreativa { border-color: rgba(245, 184, 46, 0.45); background: linear-gradient(180deg, rgba(245, 184, 46, 0.07), var(--panel)); }
+.kreativa-ingress { color: #c9d2de; margin: 0 0 14px; font-size: 14px; }
+.kreativa-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.kreativ { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.kreativ-topp { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.kreativ-nr {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--gold); color: #111; font-family: var(--display); font-weight: 800; font-size: 17px;
+}
+.kreativ-namn { flex: 1; min-width: 0; }
+.kreativ-namn h4 { margin: 0; font-family: var(--display); font-size: 19px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.15; }
+.kreativ-namn small { color: var(--muted); font-size: 12px; }
+.kreativ p { margin: 0 0 6px; font-size: 14px; color: #c9d2de; }
+.kreativ-bygger { color: var(--muted) !important; font-size: 13px !important; }
+.kreativ-bygger b { color: var(--text); font-weight: 600; }
+.risk { flex-shrink: 0; white-space: nowrap; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; }
+.risk-lag { background: rgba(53, 208, 127, 0.14); color: var(--green); }
+.risk-medel { background: rgba(245, 184, 46, 0.14); color: var(--amber); }
+.risk-hog { background: rgba(255, 90, 95, 0.14); color: var(--red); }
