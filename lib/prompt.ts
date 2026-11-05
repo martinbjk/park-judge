@@ -1,4 +1,4 @@
-import { KRITERIER, VERSIONSTYPER, huvudversion, type JudgeInput, type VersionsTyp } from "./types";
+import { KRITERIER, VERSIONSTYPER, UTFORANDE_DELAR, huvudversion, type JudgeInput, type VersionsTyp } from "./types";
 import { referensText } from "./referensruns";
 
 export const SYSTEM_PROMPT = `Du är en expertcoach och erfaren domare i park-skateboarding. Du bedömer och bygger runs strikt enligt World Skates bedömningssystem som används i olympiska spelen.
@@ -85,7 +85,7 @@ ${i.prioTricks || "inga angivna"}
 
 Parken:
 ${i.bild ? "En bild på parken är bifogad. Läs av hindren i bilden." : ""}
-${i.park ? `Beskrivning: ${i.park}` : i.bild ? "" : "okänd – anta en typisk OS-park"}`;
+${i.park ? `Beskrivning: ${i.park}` : i.bild ? "" : "okänd – anta en typisk OS-park"}${utforandeText(i)}`;
 
   const markeringar = i.markeringar || [];
   const hinderAvTranaren = markeringar.length
@@ -122,6 +122,30 @@ Den tänkta runnen (i ordning):
 ${i.run}
 
 Bedöm runnen. Bygg sedan förbättrade versioner av den. ${antal}${sprakInstruktion(i)}`;
+}
+
+// Coachens bild av fart, höjd, stil och landningar – det AI:n inte kan se i en tricklista
+function utforandeText(i: JudgeInput): string {
+  const NAMN = { fart: "Fart", hojd: "Höjd", stil: "Stil", landningar: "Landningar" } as const;
+  const NIVA = { lag: "låg", medel: "medel", hog: "hög" } as const;
+  const u = i.utforande || {};
+  const ifyllda = UTFORANDE_DELAR.filter((d) => u[d] && NIVA[u[d]!]);
+  if (!ifyllda.length) {
+    return `
+
+UTFÖRANDE: inte angivet av coachen. Anta ett godkänt utförande för nivån, och säg i kommentaren till "Quality of execution" att höjd, fart, stil och landningar inte kunnat bedömas från en tricklista.`;
+  }
+  return `
+
+UTFÖRANDE ENLIGT COACHEN (det coachen ser när åkaren åker – lita på det):
+${ifyllda.map((d) => `- ${NAMN[d]}: ${NIVA[u[d]!]}`).join("\n")}
+${UTFORANDE_DELAR.filter((d) => !ifyllda.includes(d)).map((d) => `- ${NAMN[d]}: okänt`).join("\n")}
+Så väger du in det:
+- Det påverkar framför allt "Quality of execution", men också helhetsbetyget. Samma tricklista ska få klart olika betyg beroende på utförandet.
+- Låg höjd, låg fart eller dålig stil sänker tydligt, även med svåra tricks. En run med svåra tricks men lågt och osäkert utförande når inte finalnivå.
+- Hög höjd, fart och stil höjer tydligt. Stora, snabba och stilrena airs och grinds kan väga upp något lägre svårighet.
+- Osäkra landningar sänker också "Consistency" och ökar risken för fall. Välj då säkrare tricks i versionerna.
+- Ge minst en konkret åtgärd i "atgarder" för den svagaste delen av utförandet.`;
 }
 
 // Engelska: all fritext på engelska, men JSON-nycklar, fasta värden och markeringar oförändrade

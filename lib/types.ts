@@ -45,6 +45,8 @@ export type JudgeInput = {
   markeringar?: ParkMarkering[];
   // Vilka versioner som ska byggas. Färre versioner = snabbare svar.
   versioner?: VersionsTyp[];
+  // Coachens bild av hur åkaren åker. Saknas en del = okänt.
+  utforande?: Utforande;
   lage: Lage;
   runLangd: number;
   niva: string;
@@ -116,3 +118,9 @@ export type KreativtForslag = {
   byggerPa: string; // vilka av åkarens tricks det bygger på
   risk: "Låg" | "Medel" | "Hög";
 };
+
+// Utförande som AI:n inte kan se i en tricklista: coachen fyller i det han ser
+export const UTFORANDE_DELAR = ["fart", "hojd", "stil", "landningar"] as const;
+export type UtforandeDel = (typeof UTFORANDE_DELAR)[number];
+export type UtforandeNiva = "lag" | "medel" | "hog";
+export type Utforande = Partial<Record<UtforandeDel, UtforandeNiva>>;

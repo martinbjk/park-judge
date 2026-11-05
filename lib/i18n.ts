@@ -26,6 +26,11 @@ const sv = {
   tricksHint: "Frontside- och backside-grinds läggs till automatiskt för att fylla ut runnen. Kan åkaren åka switch? Skriv \"switch\" före tricket, t.ex. switch backside air.",
   prioTricks: "Tricks att prioritera (valfritt)",
   prioPlaceholder: "Tricks du vill få med, även om de inte sitter 100 %",
+  utforandeRubrik: "Hur åker åkaren? (valfritt)",
+  utforandeHint:
+    "Det domaren inte kan se i en tricklista. Fyll i det du ser – samma tricks ger olika poäng beroende på höjd, fart och stil.",
+  utforandeDelar: { fart: "Fart", hojd: "Höjd", stil: "Stil", landningar: "Landningar" } as Record<string, string>,
+  utforandeNivaer: { "": "Vet ej", lag: "Låg", medel: "Medel", hog: "Hög" } as Record<string, string>,
 
   // 2 · Parken
   steg2: "2 · Parken",
@@ -211,6 +216,11 @@ const en: Texter = {
   tricksHint: "Frontside and backside grinds are added automatically to fill out the run. Can the skater ride switch? Write \"switch\" before the trick, e.g. switch backside air.",
   prioTricks: "Tricks to prioritise (optional)",
   prioPlaceholder: "Tricks you want included, even if they are not 100 % yet",
+  utforandeRubrik: "How does the skater ride? (optional)",
+  utforandeHint:
+    "What the judge cannot see in a trick list. Fill in what you see – the same tricks score differently depending on height, speed and style.",
+  utforandeDelar: { fart: "Speed", hojd: "Height", stil: "Style", landningar: "Landings" },
+  utforandeNivaer: { "": "Not sure", lag: "Low", medel: "Medium", hog: "High" },
 
   steg2: "2 · The park",
   sparadeParker: "Saved parks:",

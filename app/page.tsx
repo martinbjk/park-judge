@@ -14,6 +14,8 @@ import {
   VERSIONSTYPER,
   huvudversion,
   type VersionsTyp,
+  UTFORANDE_DELAR,
+  type UtforandeNiva,
 } from "@/lib/types";
 import { SPRAK, TEXTER, lasSprak, sparaSprak, type Sprak, type Texter } from "@/lib/i18n";
 import RunKarta from "./RunKarta";
@@ -401,6 +403,42 @@ export default function Page() {
         <div className="field">
           <label htmlFor="prio">{t.prioTricks}</label>
           <textarea id="prio" value={f.prioTricks} onChange={set("prioTricks")} placeholder={t.prioPlaceholder} />
+        </div>
+
+        <div className="field">
+          <label>{t.utforandeRubrik}</label>
+          <span className="hint">{t.utforandeHint}</span>
+          <div className="utforande">
+            {UTFORANDE_DELAR.map((del) => (
+              <div className="utforande-rad" key={del} role="radiogroup" aria-label={t.utforandeDelar[del]}>
+                <span className="utforande-namn">{t.utforandeDelar[del]}</span>
+                <div className="utforande-val">
+                  {(["", "lag", "medel", "hog"] as const).map((niva) => {
+                    const vald = (f.utforande?.[del] ?? "") === niva;
+                    return (
+                      <button
+                        key={niva || "vetej"}
+                        type="button"
+                        role="radio"
+                        aria-checked={vald}
+                        className={`utforande-knapp ${niva || "vetej"} ${vald ? "vald" : ""}`}
+                        onClick={() =>
+                          setF((prev) => {
+                            const ny = { ...(prev.utforande || {}) };
+                            if (niva) ny[del] = niva as UtforandeNiva;
+                            else delete ny[del];
+                            return { ...prev, utforande: ny };
+                          })
+                        }
+                      >
+                        {t.utforandeNivaer[niva]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <h3 className="panel-title">{t.steg2}</h3>

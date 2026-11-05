@@ -125,6 +125,14 @@ export async function POST(req: Request) {
     }));
   input.markeringar = markeringar;
 
+  // Coachens bedömning av utförandet: bara kända delar och nivåer
+  const u = input.utforande && typeof input.utforande === "object" ? input.utforande : {};
+  input.utforande = Object.fromEntries(
+    (["fart", "hojd", "stil", "landningar"] as const)
+      .filter((d) => u[d] === "lag" || u[d] === "medel" || u[d] === "hog")
+      .map((d) => [d, u[d]])
+  );
+
   if (lage === "bedom" && (!input.run || input.run.trim().length < 5)) {
     return fel(M.skrivRun, 400);
   }
