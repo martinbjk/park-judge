@@ -1,10 +1,33 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+// Den fasta adressen behövs för att delningsbilden ska få en fullständig länk.
+// Vercel sätter VERCEL_PROJECT_PRODUCTION_URL automatiskt.
+const adress = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
+const titel = "Park Judge – AI-domare för park-skateboarding";
+const beskrivning =
+  "Bygg runnen som domarna vill se. Bedömd enligt OS-kriterierna, med kreativa trickförslag och utmärkta hinder i din park.";
+
 export const metadata: Metadata = {
-  title: "Park Judge – AI-domare för park-skateboarding",
-  description:
-    "Bedöm och bygg din park-run enligt World Skates sju bedömningskriterier. Få Säker version, Vinnarversion och Max-risk version.",
+  metadataBase: new URL(adress),
+  title: titel,
+  description: beskrivning,
+  openGraph: {
+    title: titel,
+    description: beskrivning,
+    siteName: "Park Judge",
+    type: "website",
+    locale: "sv_SE",
+    alternateLocale: ["en_US"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: titel,
+    description: beskrivning,
+  },
 };
 
 export const viewport: Viewport = {
